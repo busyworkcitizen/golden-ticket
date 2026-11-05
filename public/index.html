@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Ticket</title>
+<meta name="description" content="One roll every 10 seconds. 1 in 10,000 wins the golden ticket.">
+<meta name="theme-color" content="#120a07">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #120a07;
+    --panel: #1f140d;
+    --line: rgba(242, 201, 76, .16);
+    --text: #f6ead2;
+    --muted: #b3a083;
+    --gold-1: #fff3c4;
+    --gold-2: #f2c94c;
+    --gold-3: #c8901a;
+    --ink: #3a2405;
+    --gold: linear-gradient(135deg, var(--gold-1) 0%, var(--gold-2) 30%, var(--gold-3) 62%, var(--gold-2) 82%, var(--gold-1) 100%);
+    --display: "Abril Fatface", Georgia, "Times New Roman", serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 90% 55% at 50% -12%, rgba(242, 201, 76, .17), transparent 70%),
+      radial-gradient(ellipse 70% 40% at 50% 112%, rgba(200, 144, 26, .10), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 44px 16px 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+
+  /* Header */
+  header { text-align: center; }
+  .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: .32em; text-transform: uppercase; color: var(--gold-2);
+  }
+  h1 {
+    font-family: var(--display); font-weight: 400;
+    font-size: clamp(48px, 13vw, 76px); line-height: 1; margin: 10px 0 14px;
+    background: var(--gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 14px rgba(242, 201, 76, .22));
+  }
+  .sub { color: var(--muted); margin: 0 auto; max-width: 38ch; }
+  .sub strong { color: var(--text); font-weight: 600; }
+
+  /* Ticket display */
+  .ticket {
+    --notch: 16px;
+    position: relative; width: 100%;
+    padding: 22px 40px 22px;
+    background: linear-gradient(160deg, #2c1d12, #1a110a);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    -webkit-mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+            mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+    transition: box-shadow .4s;
+  }
+  .ticket::before {
+    content: ""; position: absolute; inset: 8px 28px; pointer-events: none;
+    border: 1px dashed rgba(242, 201, 76, .2); border-radius: 8px;
+  }
+  .ticket-top {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 11px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
+  }
+  .roll-number {
+    font-family: var(--display); font-size: clamp(68px, 21vw, 116px); line-height: 1.08;
+    text-align: center; margin: 8px 0 0; color: var(--text);
+    transition: color .2s;
+  }
+  .roll-number.spinning { color: #7d6a50; }
+  .roll-number.won {
+    background: var(--gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .roll-meta { text-align: center; color: var(--muted); font-size: 14px; margin: 0; }
+  .verdict {
+    text-align: center; margin: 10px 0 0; min-height: 1.5em; font-weight: 600; color: var(--gold-2);
+  }
+  .verdict.error { color: #ff9b8a; }
+
+  /* Roll button + countdown ring */
+  .roller { position: relative; width: 152px; height: 152px; }
+  .ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring circle { fill: none; stroke-width: 6; }
+  .ring-track { stroke: rgba(242, 201, 76, .12); }
+  .ring-fill { stroke: var(--gold-2); stroke-linecap: round; stroke-dasharray: 339.292; stroke-dashoffset: 0; }
+  .roll-btn {
+    position: absolute; inset: 15px; border: 0; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: var(--gold); color: var(--ink);
+    font: 700 24px/1 Inter, system-ui, sans-serif; letter-spacing: .12em;
+    box-shadow: 0 10px 32px rgba(242, 201, 76, .28), inset 0 -4px 0 rgba(0, 0, 0, .18), inset 0 2px 0 rgba(255, 255, 255, .55);
+    cursor: pointer; transition: transform .12s ease, box-shadow .2s;
+  }
+  .roll-btn small { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: .7; }
+  .roll-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); }
+  .roll-btn:active:not(:disabled) { transform: scale(.97); }
+  .roll-btn:focus-visible { outline: 3px solid var(--gold-1); outline-offset: 4px; }
+  .roll-btn:disabled {
+    background: #2e2016; color: var(--text); cursor: default;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .roll-btn:disabled small { color: var(--muted); opacity: 1; }
+  .roller.ready .ring-fill { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { stroke: var(--gold-1); } }
+
+  /* Controls */
+  .controls { width: 100%; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+  .field { flex: 1 1 220px; display: flex; flex-direction: column; gap: 6px; }
+  .field span, .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .field input {
+    font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; width: 100%;
+  }
+  .field input::placeholder { color: #7d6a50; }
+  .field input:focus { outline: none; border-color: var(--gold-2); box-shadow: 0 0 0 3px rgba(242, 201, 76, .15); }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
+    font-size: 14px; font-weight: 500;
+  }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch { width: 36px; height: 20px; border-radius: 999px; background: #3a2a1c; position: relative; transition: background .2s; flex: none; }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--muted); transition: transform .2s, background .2s;
+  }
+  .toggle input:checked + .switch { background: var(--gold-3); }
+  .toggle input:checked + .switch::after { transform: translateX(16px); background: var(--gold-1); }
+  .toggle input:focus-visible + .switch { outline: 2px solid var(--gold-1); outline-offset: 2px; }
+
+  /* Stats + panels */
+  .stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 12px; text-align: center; min-width: 0; }
+  .stat b { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .panel { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .panel h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .count { background: var(--gold); color: var(--ink); border-radius: 999px; padding: 1px 9px; font-size: 12px; letter-spacing: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 13px; font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 999px; background: #2a1c12; color: var(--muted); }
+  .chip.best { color: var(--gold-2); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .35); }
+  .empty { margin: 0; color: #8a7659; font-size: 14px; }
+  .winners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .winners li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .winners li span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .winners li span:last-child { color: var(--muted); flex: none; }
+  footer { color: #8a7659; font-size: 13px; text-align: center; max-width: 46ch; }
+
+  /* Win overlay */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    padding: 24px 16px; text-align: center;
+    background: rgba(10, 6, 3, .86); backdrop-filter: blur(6px);
+    animation: fade .4s ease;
+  }
+  .overlay[hidden] { display: none; }
+  @keyframes fade { from { opacity: 0; } }
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .golden {
+    --notch: 18px;
+    position: relative; width: min(100%, 460px); padding: 26px 44px 24px; color: var(--ink);
+    background: var(--gold); background-size: 200% 200%;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 20px 80px rgba(242, 201, 76, .35);
+    -webkit-mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+            mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+    animation: rise .7s cubic-bezier(.2, .9, .3, 1.2), shimmer 4s linear infinite;
+  }
+  .golden::before {
+    content: ""; position: absolute; inset: 9px 30px; border: 1.5px dashed rgba(58, 36, 5, .35); border-radius: 8px; pointer-events: none;
+  }
+  .golden::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .55) 50%, transparent 65%);
+    transform: translateX(-100%); animation: sweep 3s ease-in-out 1s infinite;
+  }
+  @keyframes rise { from { transform: translateY(40px) scale(.85) rotate(-3deg); opacity: 0; } }
+  @keyframes shimmer { 50% { background-position: 100% 100%; } }
+  @keyframes sweep { 60%, 100% { transform: translateX(100%); } }
+  .golden-top { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+  .golden h2 { font-family: var(--display); font-weight: 400; font-size: clamp(38px, 11vw, 54px); line-height: 1.05; margin: 12px 0 6px; }
+  .golden-name { margin: 0 0 16px; }
+  .golden-code {
+    font: 700 clamp(18px, 5.4vw, 24px)/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .08em;
+    background: rgba(58, 36, 5, .1); border: 1px solid rgba(58, 36, 5, .25); border-radius: 8px; padding: 12px 10px;
+  }
+  .golden-fine { margin: 12px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; opacity: .75; }
+  .overlay-note { max-width: 40ch; margin: 0; color: var(--text); position: relative; }
+  .ghost-btn {
+    position: relative; font: 600 15px Inter, system-ui, sans-serif; color: var(--text);
+    background: transparent; border: 1px solid rgba(242, 201, 76, .4); border-radius: 999px; padding: 10px 22px; cursor: pointer;
+  }
+  .ghost-btn:hover { background: rgba(242, 201, 76, .1); }
+
+  @media (max-width: 420px) {
+    main { padding-top: 32px; gap: 24px; }
+    .ticket { padding: 18px 32px; }
+    .ticket::before { inset: 8px 22px; }
+    .stat b { font-size: 19px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">★ 1 in <span data-odds>10,000</span> ★</div>
+    <h1>Golden Ticket</h1>
+    <p class="sub">Everyone gets <strong>one roll every 10 seconds</strong>. Roll a perfect <strong data-odds>10,000</strong> and the golden ticket is yours.</p>
+  </header>
+
+  <section class="ticket" aria-label="Your roll">
+    <div class="ticket-top"><span>Admit one</span><span id="ticketNo">No. 0000</span></div>
+    <p class="roll-number" id="rollNumber">—</p>
+    <p class="roll-meta">out of <span data-odds>10,000</span></p>
+    <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
+  </section>
+
+  <div class="roller" id="roller">
+    <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="ring-track" cx="60" cy="60" r="54"/>
+      <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="54"/>
+    </svg>
+    <button class="roll-btn" id="rollBtn" type="button">
+      <span id="rollLabel">ROLL</span>
+      <small id="rollHint">ready</small>
+    </button>
+  </div>
+
+  <div class="controls">
+    <label class="field">
+      <span>Your name</span>
+      <input id="name" maxlength="40" placeholder="So we know who won" autocomplete="nickname">
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="auto">
+      <span class="switch" aria-hidden="true"></span>
+      <span>Auto-roll</span>
+    </label>
+  </div>
+
+  <section class="stats" aria-label="Stats">
+    <div class="stat"><b id="myRolls">0</b><span>Your rolls</span></div>
+    <div class="stat"><b id="myBest">—</b><span>Your best</span></div>
+    <div class="stat"><b id="worldRolls">—</b><span>Rolls worldwide</span></div>
+  </section>
+
+  <section class="panel">
+    <h2>Your last rolls</h2>
+    <div class="chips" id="recent"></div>
+    <p class="empty" id="recentEmpty">Nothing yet. Your rolls will show up here.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Golden tickets found <span class="count" id="winnerCount">0</span></h2>
+    <ol class="winners" id="winners"></ol>
+    <p class="empty" id="winnersEmpty">No one has found it yet. Will it be you?</p>
+  </section>
+
+  <footer id="oddsNote">Every roll is a fresh 1 in 10,000 chance.</footer>
+</main>
+
+<div class="overlay" id="winOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="winTitle">
+  <canvas id="confetti"></canvas>
+  <div class="golden">
+    <div class="golden-top"><span>Admit one</span><span id="winDate"></span></div>
+    <h2 id="winTitle">Golden Ticket</h2>
+    <p class="golden-name">Awarded to <strong id="winName"></strong></p>
+    <div class="golden-code" id="winCode"></div>
+    <p class="golden-fine">Roll #<span id="winRollNo"></span> · 1 in <span data-odds>10,000</span></p>
+  </div>
+  <p class="overlay-note">You won! Your win has been recorded. <strong>Screenshot this ticket and keep the code.</strong> Show it to the owner to claim your prize.</p>
+  <button class="ghost-btn" id="closeWin" type="button">Back to rolling</button>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Number(n).toLocaleString('en-US');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const RING = 339.292;
+
+  const store = {
+    get(key, fallback) {
+      try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; }
+    },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} },
+  };
+
+  let odds = 10000;
+  let cooldownMs = 10000;
+  let readyAt = 0;      // Date.now() when the next roll is allowed
+  let rolling = false;
+  const me = store.get('gt_me', { rolls: 0, best: 0, recent: [] });
+
+  const btn = $('rollBtn'), label = $('rollLabel'), hint = $('rollHint');
+  const nameInput = $('name'), autoInput = $('auto');
+  nameInput.value = store.get('gt_name', '');
+  autoInput.checked = store.get('gt_auto', false);
+  nameInput.addEventListener('change', () => store.set('gt_name', nameInput.value.trim()));
+  autoInput.addEventListener('change', () => store.set('gt_auto', autoInput.checked));
+
+  // ---- Rendering -------------------------------------------------------
+  function renderOdds() {
+    document.querySelectorAll('[data-odds]').forEach((el) => { el.textContent = fmt(odds); });
+    const hours = (odds * cooldownMs) / 3_600_000;
+    const span = hours >= 1.5 ? `about ${fmt(Math.round(hours))} hours` : `about ${fmt(Math.round(hours * 60))} minutes`;
+    $('oddsNote').textContent =
+      `Every roll is a fresh 1 in ${fmt(odds)} chance. At one roll every ${cooldownMs / 1000} seconds, the average player needs ${span} of non-stop rolling to win, and nothing is guaranteed.`;
+  }
+
+  function renderMe() {
+    $('myRolls').textContent = fmt(me.rolls);
+    $('myBest').textContent = me.best ? fmt(me.best) : '—';
+    $('ticketNo').textContent = `No. ${String(me.rolls).padStart(4, '0')}`;
+    const recent = $('recent');
+    recent.replaceChildren(...me.recent.map((r) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (r === me.best ? ' best' : '');
+      chip.textContent = fmt(r);
+      return chip;
+    }));
+    $('recentEmpty').hidden = me.recent.length > 0;
+  }
+
+  function applyServer(s) {
+    if (s.odds) odds = s.odds;
+    if (s.cooldownMs) cooldownMs = s.cooldownMs;
+    $('worldRolls').textContent = fmt(s.totalRolls);
+    $('winnerCount').textContent = fmt(s.winnerCount);
+    const list = $('winners');
+    list.replaceChildren(...(s.recentWinners || []).map((w) => {
+      const li = document.createElement('li');
+      const who = document.createElement('span');
+      const when = document.createElement('span');
+      who.textContent = '🎫 ' + w.name;
+      when.textContent = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      li.append(who, when);
+      return li;
+    }));
+    $('winnersEmpty').hidden = s.winnerCount > 0;
+    renderOdds();
+  }
+
+  function verdictFor(roll) {
+    const r = roll / odds;
+    if (roll === odds) return 'GOLDEN TICKET!';
+    if (odds >= 1000 && roll >= odds - 10) return 'Agonizingly close!';
+    if (r >= 0.99) return 'So close you can taste it.';
+    if (r >= 0.9) return 'Getting warmer…';
+    if (r <= 0.01) return 'Ice cold.';
+    const lines = ['Not this time.', 'The ticket is still out there.', 'Keep rolling.', 'Nope, but the next one could be it.', 'Unlucky. Go again in 10.'];
+    return lines[Math.floor(Math.random() * lines.length)];
+  }
+
+  function setVerdict(text, isError = false) {
+    const v = $('verdict');
+    v.textContent = text;
+    v.classList.toggle('error', isError);
+  }
+
+  // ---- Countdown loop --------------------------------------------------
+  function tick() {
+    const remaining = Math.max(0, readyAt - Date.now());
+    const ready = remaining === 0 && !rolling;
+    btn.disabled = !ready;
+    $('roller').classList.toggle('ready', ready);
+    if (rolling) {
+      label.textContent = '…';
+      hint.textContent = 'rolling';
+      $('ringFill').style.strokeDashoffset = String(RING);
+    } else if (remaining > 0) {
+      label.textContent = Math.ceil(remaining / 1000) + 's';
+      hint.textContent = 'next roll';
+      $('ringFill').style.strokeDashoffset = String(RING * (remaining / cooldownMs));
+    } else {
+      label.textContent = 'ROLL';
+      hint.textContent = autoInput.checked ? 'auto' : 'ready';
+      $('ringFill').style.strokeDashoffset = '0';
+      if (autoInput.checked && $('winOverlay').hidden) roll();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---- Rolling ---------------------------------------------------------
+  function startSpin() {
+    const el = $('rollNumber');
+    el.classList.remove('won');
+    el.classList.add('spinning');
+    if (reducedMotion) { el.textContent = '…'; return () => el.classList.remove('spinning'); }
+    const timer = setInterval(() => { el.textContent = fmt(1 + Math.floor(Math.random() * odds)); }, 55);
+    return () => { clearInterval(timer); el.classList.remove('spinning'); };
+  }
+
+  async function roll() {
+    if (rolling || Date.now() < readyAt) return;
+    rolling = true;
+    const name = nameInput.value.trim().slice(0, 40);
+    store.set('gt_name', name);
+    setVerdict('Rolling…');
+    const stopSpin = startSpin();
+    const minSpin = new Promise((r) => setTimeout(r, reducedMotion ? 0 : 750));
+
+    let res, data;
+    try {
+      res = await fetch('/api/roll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      data = await res.json();
+    } catch {
+      res = null;
+    }
+    await minSpin;
+    stopSpin();
+
+    const el = $('rollNumber');
+    if (!res) {
+      el.textContent = '—';
+      setVerdict("Couldn't reach the server. Trying again shortly.", true);
+      readyAt = Date.now() + 3000;
+    } else if (res.status === 429) {
+      el.textContent = me.recent[0] ? fmt(me.recent[0]) : '—';
+      readyAt = Date.now() + (data.waitMs || cooldownMs);
+      setVerdict(`Easy there. One roll every ${cooldownMs / 1000} seconds.`, true);
+    } else if (!res.ok) {
+      el.textContent = '—';
+      setVerdict('Something went wrong. Try again in a moment.', true);
+      readyAt = Date.now() + 3000;
+    } else {
+      applyServer(data);
+      readyAt = Date.now() + data.waitMs;
+      el.textContent = fmt(data.roll);
+      me.rolls += 1;
+      me.best = Math.max(me.best, data.roll);
+      me.recent = [data.roll, ...me.recent].slice(0, 12);
+      store.set('gt_me', me);
+      renderMe();
+      setVerdict(verdictFor(data.roll));
+      if (data.win) celebrate(data.ticket);
+    }
+    rolling = false;
+  }
+
+  // ---- Winning ---------------------------------------------------------
+  function celebrate(ticket) {
+    $('rollNumber').classList.add('won');
+    autoInput.checked = false;
+    store.set('gt_auto', false);
+    store.set('gt_ticket', ticket);
+    $('winName').textContent = ticket.name;
+    $('winCode').textContent = ticket.code;
+    $('winRollNo').textContent = fmt(ticket.rollNumber);
+    $('winDate').textContent = new Date(ticket.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    $('winOverlay').hidden = false;
+    document.title = '🎫 YOU WON THE GOLDEN TICKET!';
+    $('closeWin').focus();
+    if (!reducedMotion) confetti();
+  }
+
+  $('closeWin').addEventListener('click', () => {
+    $('winOverlay').hidden = true;
+    document.title = 'Golden Ticket';
+    btn.focus();
+  });
+
+  function confetti() {
+    const canvas = $('confetti');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    const colors = ['#fff3c4', '#f2c94c', '#c8901a', '#ffe08a', '#ffffff'];
+    const pieces = Array.from({ length: 180 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -Math.random() * canvas.height * 0.7,
+      w: (6 + Math.random() * 6) * dpr,
+      h: (9 + Math.random() * 10) * dpr,
+      vx: (Math.random() - 0.5) * 2 * dpr,
+      vy: (2 + Math.random() * 3) * dpr,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    const end = performance.now() + 7000;
+    (function frame(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of pieces) {
+        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.y > canvas.height + 20 && t < end - 2000) { p.y = -20; p.x = Math.random() * canvas.width; }
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      }
+      if (t < end && !$('winOverlay').hidden) requestAnimationFrame(frame);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    })(performance.now());
+  }
+
+  // ---- Start -----------------------------------------------------------
+  btn.addEventListener('click', roll);
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && document.activeElement !== nameInput && $('winOverlay').hidden && !btn.disabled) {
+      e.preventDefault();
+      roll();
+    }
+  });
+
+  async function refreshState() {
+    try {
+      const s = await (await fetch('/api/state')).json();
+      applyServer(s);
+      return s;
+    } catch { return null; }
+  }
+
+  renderMe();
+  renderOdds();
+  refreshState().then((s) => {
+    if (s && s.waitMs > 0) readyAt = Date.now() + s.waitMs;
+    requestAnimationFrame(tick);
+  });
+  setInterval(() => { if (!document.hidden && !rolling) refreshState(); }, 30_000);
+})();
+</script>
+</body>
+</html>
