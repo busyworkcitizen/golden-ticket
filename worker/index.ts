@@ -2,7 +2,7 @@
 //
 // Optional. Without it the public site still works, but every roll happens in the
 // visitor's browser. With it, the server does every roll (so wins can't be faked),
-// enforces the 10-second limit per player and per IP address, keeps the roll count
+// enforces the 5-second limit per player and per IP address, keeps the roll count
 // across all players, and saves every winner so the owner can check ticket codes
 // on owner.html.
 import { DurableObject } from "cloudflare:workers";
@@ -15,7 +15,7 @@ interface Env {
 }
 
 const DEFAULT_ODDS = 10_000;
-const COOLDOWN_MS = 10_000;
+const COOLDOWN_MS = 5_000;
 const LOCKOUT_MS = 15 * 60_000;
 const MAX_FAILS = 5;
 const LEADERBOARD_SIZE = 10;
@@ -63,7 +63,7 @@ type Row = Record<string, SqlStorageValue>;
 export class Table extends DurableObject<Env> {
   private sql: SqlStorage;
   // Last roll time per player and per IP. Memory is enough: the object only shuts down
-  // after sitting idle for longer than the 10-second cooldown.
+  // after sitting idle for longer than the 5-second cooldown.
   private lastRoll = new Map<string, number>();
 
   constructor(ctx: DurableObjectState, env: Env) {

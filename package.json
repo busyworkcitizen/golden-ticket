@@ -2,7 +2,7 @@
   "name": "golden-ticket",
   "version": "1.0.0",
   "private": true,
-  "description": "Roll once every 10 seconds for a 1 in 10,000 shot at the golden ticket.",
+  "description": "Roll once every 5 seconds for a 1 in 10,000 shot at the golden ticket.",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "worker:dev": "wrangler dev",

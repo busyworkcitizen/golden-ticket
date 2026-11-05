@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Golden Ticket</title>
-<meta name="description" content="One roll every 10 seconds. 1 in 10,000 wins the golden ticket.">
+<meta name="description" content="One roll every 5 seconds. 1 in 10,000 wins the golden ticket.">
 <meta name="theme-color" content="#120a07">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -286,7 +286,7 @@
   <header>
     <div class="eyebrow">★ 1 in <span data-odds>10,000</span> ★</div>
     <h1>Golden Ticket</h1>
-    <p class="sub">Everyone gets <strong>one roll every 10 seconds</strong>. Roll a perfect <strong data-odds>10,000</strong> and the golden ticket is yours.</p>
+    <p class="sub">Everyone gets <strong>one roll every <span data-cooldown>5</span> seconds</strong>. Roll a perfect <strong data-odds>10,000</strong> and the golden ticket is yours.</p>
   </header>
 
   <section class="ticket" id="ticket" aria-label="Your roll">
@@ -380,7 +380,7 @@
   };
 
   let odds = 10000;       // 1 in 10,000
-  let cooldownMs = 10000; // one roll every 10 seconds
+  let cooldownMs = 5000;  // one roll every 5 seconds
   let serverUrl = '';     // the table server from config.json, when it's reachable
   let readyAt = 0;        // Date.now() when the next roll is allowed
   let rolling = false;
@@ -446,7 +446,7 @@
     } catch { return null; }
   }
 
-  // On its own, the roll and the 10-second limit live in this browser.
+  // On its own, the roll and the 5-second limit live in this browser.
   function localRoll(name) {
     const now = Date.now();
     const next = Math.max(localNext, store.get('gt_next', 0));
@@ -484,6 +484,7 @@
 
   function renderOdds() {
     document.querySelectorAll('[data-odds]').forEach((el) => { el.textContent = fmt(odds); });
+    document.querySelectorAll('[data-cooldown]').forEach((el) => { el.textContent = String(cooldownMs / 1000); });
     const hours = (odds * cooldownMs) / 3_600_000;
     const span = hours >= 1.5 ? `about ${fmt(Math.round(hours))} hours`
       : hours * 60 >= 1 ? `about ${fmt(Math.round(hours * 60))} minutes` : 'less than a minute';
@@ -594,7 +595,7 @@
     if (r >= 0.99) return 'So close you can taste it.';
     if (r >= 0.9) return 'Getting warmer…';
     if (r <= 0.01) return 'Ice cold.';
-    const lines = ['Not this time.', 'The ticket is still out there.', 'Keep rolling.', 'Nope, but the next one could be it.', 'Unlucky. Go again in 10.'];
+    const lines = ['Not this time.', 'The ticket is still out there.', 'Keep rolling.', 'Nope, but the next one could be it.', `Unlucky. Go again in ${cooldownMs / 1000}.`];
     return lines[Math.floor(Math.random() * lines.length)];
   }
 
