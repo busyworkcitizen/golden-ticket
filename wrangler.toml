@@ -1,0 +1,21 @@
+# Cloudflare Worker for Golden Ticket's table server (see README: "Table server").
+# Runs on Cloudflare's free plan. The Durable Object below is its database; it is created on deploy.
+name = "golden-ticket"
+main = "worker/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Only these sites may use the table. Comma-separated, no trailing slash.
+ALLOWED_ORIGINS = "https://busyworkcitizen.github.io"
+
+[[durable_objects.bindings]]
+name = "TABLE"
+class_name = "Table"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Table"]
+
+# Owner page password: add a secret named ADMIN_PASSWORD in the Cloudflare dashboard
+# (Worker > Settings > Variables and Secrets) or with: npx wrangler secret put ADMIN_PASSWORD
+# Without it, owner.html stays locked and nobody can see the winners list or ticket codes.

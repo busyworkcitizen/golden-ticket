@@ -164,9 +164,10 @@
   .chip.best { color: var(--gold-2); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .35); }
   .empty { margin: 0; color: #8a7659; font-size: 14px; }
   .winners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .winners li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .winners li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
   .winners li span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .winners li span:last-child { color: var(--muted); flex: none; }
+  .winners li span.code { font: 700 14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .04em; color: var(--gold-2); }
   footer { color: #8a7659; font-size: 13px; text-align: center; max-width: 46ch; }
 
   /* Win overlay */
@@ -251,9 +252,9 @@
       <circle class="ring-track" cx="60" cy="60" r="54"/>
       <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="54"/>
     </svg>
-    <button class="roll-btn" id="rollBtn" type="button">
+    <button class="roll-btn" id="rollBtn" type="button" disabled>
       <span id="rollLabel">ROLL</span>
-      <small id="rollHint">ready</small>
+      <small id="rollHint">loading</small>
     </button>
   </div>
 
@@ -272,7 +273,7 @@
   <section class="stats" aria-label="Stats">
     <div class="stat"><b id="myRolls">0</b><span>Your rolls</span></div>
     <div class="stat"><b id="myBest">—</b><span>Your best</span></div>
-    <div class="stat"><b id="worldRolls">—</b><span>Rolls worldwide</span></div>
+    <div class="stat"><b id="stat3">0</b><span id="stat3Label">Tickets won</span></div>
   </section>
 
   <section class="panel">
@@ -281,7 +282,12 @@
     <p class="empty" id="recentEmpty">Nothing yet. Your rolls will show up here.</p>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="ticketsPanel" hidden>
+    <h2>Your golden tickets</h2>
+    <ol class="winners" id="myTickets"></ol>
+  </section>
+
+  <section class="panel" id="hallPanel" hidden>
     <h2>Golden tickets found <span class="count" id="winnerCount">0</span></h2>
     <ol class="winners" id="winners"></ol>
     <p class="empty" id="winnersEmpty">No one has found it yet. Will it be you?</p>
@@ -299,7 +305,7 @@
     <div class="golden-code" id="winCode"></div>
     <p class="golden-fine">Roll #<span id="winRollNo"></span> · 1 in <span data-odds>10,000</span></p>
   </div>
-  <p class="overlay-note">You won! Your win has been recorded. <strong>Screenshot this ticket and keep the code.</strong> Show it to the owner to claim your prize.</p>
+  <p class="overlay-note"><span id="winRecorded">You won! </span><strong>Screenshot this ticket and keep the code.</strong> Show it to the owner to claim your prize.</p>
   <button class="ghost-btn" id="closeWin" type="button">Back to rolling</button>
 </div>
 
@@ -309,6 +315,7 @@
   const fmt = (n) => Number(n).toLocaleString('en-US');
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const RING = 339.292;
+  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alike characters
 
   const store = {
     get(key, fallback) {
@@ -317,11 +324,19 @@
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} },
   };
 
-  let odds = 10000;
-  let cooldownMs = 10000;
-  let readyAt = 0;      // Date.now() when the next roll is allowed
+  let odds = 10000;       // 1 in 10,000
+  let cooldownMs = 10000; // one roll every 10 seconds
+  let serverUrl = '';     // the table server from config.json, when it's reachable
+  let readyAt = 0;        // Date.now() when the next roll is allowed
   let rolling = false;
+  let localNext = 0;       // local-only cooldown, kept in memory as well as in storage
   const me = store.get('gt_me', { rolls: 0, best: 0, recent: [] });
+  const myTickets = store.get('gt_tickets', []);
+  const playerId = (() => {
+    let id = store.get('gt_pid', '');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) { id = uuid(); store.set('gt_pid', id); }
+    return id;
+  })();
 
   const btn = $('rollBtn'), label = $('rollLabel'), hint = $('rollHint');
   const nameInput = $('name'), autoInput = $('auto');
@@ -330,44 +345,131 @@
   nameInput.addEventListener('change', () => store.set('gt_name', nameInput.value.trim()));
   autoInput.addEventListener('change', () => store.set('gt_auto', autoInput.checked));
 
+  // ---- Randomness ------------------------------------------------------
+  function randomInt(n) { // uniform in [0, n) with no modulo bias
+    const limit = Math.floor(0x100000000 / n) * n;
+    const buf = new Uint32Array(1);
+    do crypto.getRandomValues(buf); while (buf[0] >= limit);
+    return buf[0] % n;
+  }
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+  function ticketCode() {
+    const group = () => Array.from({ length: 4 }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join('');
+    return `GT-${group()}-${group()}-${group()}`;
+  }
+  const withTimeout = (promise, ms) =>
+    Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
+  // ---- Table server (optional; see README) -----------------------------
+  async function connect() {
+    try {
+      const config = await withTimeout(fetch('config.json', { cache: 'no-store' }).then((r) => r.json()), 4000);
+      const url = String(config?.serverUrl || '').trim().replace(/\/+$/, '');
+      if (!/^https?:\/\/[^\s]+$/.test(url)) return false;
+      const health = await withTimeout(fetch(url + '/', { cache: 'no-store' }).then((r) => r.json()), 6000);
+      if (health && health.table) { serverUrl = url; return true; }
+    } catch {}
+    return false;
+  }
+
+  async function refreshState() {
+    if (!serverUrl) return null;
+    try {
+      const r = await withTimeout(fetch(`${serverUrl}/api/state?player=${playerId}`, { cache: 'no-store' }), 8000);
+      if (!r.ok) return null;
+      const s = await r.json();
+      applyServer(s);
+      return s;
+    } catch { return null; }
+  }
+
+  // On its own, the roll and the 10-second limit live in this browser.
+  function localRoll(name) {
+    const now = Date.now();
+    const next = Math.max(localNext, store.get('gt_next', 0));
+    if (now < next) return { status: 429, data: { error: 'cooldown', waitMs: next - now } };
+    localNext = now + cooldownMs;
+    store.set('gt_next', localNext);
+    const roll = randomInt(odds) + 1; // 1..odds
+    const win = roll === odds;
+    const ticket = win ? { code: ticketCode(), name: name || 'Anonymous', at: new Date(now).toISOString(), rollNumber: me.rolls + 1 } : null;
+    return { status: 200, data: { roll, win, ticket, waitMs: cooldownMs } };
+  }
+
+  // With the table server, the server rolls, so nobody can fake a win.
+  async function requestRoll(name) {
+    if (!serverUrl) return localRoll(name);
+    try {
+      const r = await withTimeout(fetch(serverUrl + '/api/roll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player: playerId, name }),
+      }), 8000);
+      return { status: r.status, data: await r.json() };
+    } catch {
+      return null;
+    }
+  }
+
   // ---- Rendering -------------------------------------------------------
+  function setMode() {
+    $('stat3Label').textContent = serverUrl ? 'Rolls worldwide' : 'Tickets won';
+    $('hallPanel').hidden = !serverUrl;
+    $('winRecorded').textContent = serverUrl ? 'You won! Your win has been recorded. ' : 'You won! ';
+    if (!serverUrl) $('stat3').textContent = fmt(myTickets.length);
+  }
+
   function renderOdds() {
     document.querySelectorAll('[data-odds]').forEach((el) => { el.textContent = fmt(odds); });
     const hours = (odds * cooldownMs) / 3_600_000;
-    const span = hours >= 1.5 ? `about ${fmt(Math.round(hours))} hours` : `about ${fmt(Math.round(hours * 60))} minutes`;
+    const span = hours >= 1.5 ? `about ${fmt(Math.round(hours))} hours`
+      : hours * 60 >= 1 ? `about ${fmt(Math.round(hours * 60))} minutes` : 'less than a minute';
     $('oddsNote').textContent =
       `Every roll is a fresh 1 in ${fmt(odds)} chance. At one roll every ${cooldownMs / 1000} seconds, the average player needs ${span} of non-stop rolling to win, and nothing is guaranteed.`;
+  }
+
+  const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+  function listItem(left, right, leftClass) {
+    const li = document.createElement('li');
+    const a = document.createElement('span');
+    const b = document.createElement('span');
+    a.textContent = left;
+    if (leftClass) a.className = leftClass;
+    b.textContent = right;
+    li.append(a, b);
+    return li;
   }
 
   function renderMe() {
     $('myRolls').textContent = fmt(me.rolls);
     $('myBest').textContent = me.best ? fmt(me.best) : '—';
     $('ticketNo').textContent = `No. ${String(me.rolls).padStart(4, '0')}`;
-    const recent = $('recent');
-    recent.replaceChildren(...me.recent.map((r) => {
+    $('recent').replaceChildren(...me.recent.map((r) => {
       const chip = document.createElement('span');
       chip.className = 'chip' + (r === me.best ? ' best' : '');
       chip.textContent = fmt(r);
       return chip;
     }));
     $('recentEmpty').hidden = me.recent.length > 0;
+    $('myTickets').replaceChildren(...myTickets.map((t) => listItem(t.code, shortDate(t.at), 'code')));
+    $('ticketsPanel').hidden = myTickets.length === 0;
+    if (!serverUrl) $('stat3').textContent = fmt(myTickets.length);
   }
 
   function applyServer(s) {
     if (s.odds) odds = s.odds;
     if (s.cooldownMs) cooldownMs = s.cooldownMs;
-    $('worldRolls').textContent = fmt(s.totalRolls);
+    $('stat3').textContent = fmt(s.totalRolls);
     $('winnerCount').textContent = fmt(s.winnerCount);
-    const list = $('winners');
-    list.replaceChildren(...(s.recentWinners || []).map((w) => {
-      const li = document.createElement('li');
-      const who = document.createElement('span');
-      const when = document.createElement('span');
-      who.textContent = '🎫 ' + w.name;
-      when.textContent = new Date(w.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      li.append(who, when);
-      return li;
-    }));
+    $('winners').replaceChildren(...(s.recentWinners || []).map((w) => listItem('🎫 ' + w.name, shortDate(w.at))));
     $('winnersEmpty').hidden = s.winnerCount > 0;
     renderOdds();
   }
@@ -402,7 +504,7 @@
     } else if (remaining > 0) {
       label.textContent = Math.ceil(remaining / 1000) + 's';
       hint.textContent = 'next roll';
-      $('ringFill').style.strokeDashoffset = String(RING * (remaining / cooldownMs));
+      $('ringFill').style.strokeDashoffset = String(RING * Math.min(1, remaining / cooldownMs));
     } else {
       label.textContent = 'ROLL';
       hint.textContent = autoInput.checked ? 'auto' : 'ready';
@@ -430,42 +532,37 @@
     setVerdict('Rolling…');
     const stopSpin = startSpin();
     const minSpin = new Promise((r) => setTimeout(r, reducedMotion ? 0 : 750));
-
-    let res, data;
-    try {
-      res = await fetch('/api/roll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      data = await res.json();
-    } catch {
-      res = null;
-    }
+    const result = await requestRoll(name);
     await minSpin;
     stopSpin();
 
     const el = $('rollNumber');
-    if (!res) {
-      el.textContent = '—';
-      setVerdict("Couldn't reach the server. Trying again shortly.", true);
+    const last = me.recent[0] ? fmt(me.recent[0]) : '—';
+    if (!result) {
+      el.textContent = last;
+      setVerdict("Couldn't reach the ticket server. Trying again shortly.", true);
       readyAt = Date.now() + 3000;
-    } else if (res.status === 429) {
-      el.textContent = me.recent[0] ? fmt(me.recent[0]) : '—';
-      readyAt = Date.now() + (data.waitMs || cooldownMs);
+    } else if (result.status === 429) {
+      el.textContent = last;
+      readyAt = Date.now() + (result.data.waitMs || cooldownMs);
       setVerdict(`Easy there. One roll every ${cooldownMs / 1000} seconds.`, true);
-    } else if (!res.ok) {
-      el.textContent = '—';
+    } else if (result.status !== 200) {
+      el.textContent = last;
       setVerdict('Something went wrong. Try again in a moment.', true);
       readyAt = Date.now() + 3000;
     } else {
-      applyServer(data);
+      const data = result.data;
+      if (serverUrl) applyServer(data);
       readyAt = Date.now() + data.waitMs;
       el.textContent = fmt(data.roll);
       me.rolls += 1;
       me.best = Math.max(me.best, data.roll);
       me.recent = [data.roll, ...me.recent].slice(0, 12);
       store.set('gt_me', me);
+      if (data.win) {
+        myTickets.unshift(data.ticket);
+        store.set('gt_tickets', myTickets);
+      }
       renderMe();
       setVerdict(verdictFor(data.roll));
       if (data.win) celebrate(data.ticket);
@@ -478,11 +575,10 @@
     $('rollNumber').classList.add('won');
     autoInput.checked = false;
     store.set('gt_auto', false);
-    store.set('gt_ticket', ticket);
     $('winName').textContent = ticket.name;
     $('winCode').textContent = ticket.code;
     $('winRollNo').textContent = fmt(ticket.rollNumber);
-    $('winDate').textContent = new Date(ticket.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    $('winDate').textContent = shortDate(ticket.at);
     $('winOverlay').hidden = false;
     document.title = '🎫 YOU WON THE GOLDEN TICKET!';
     $('closeWin').focus();
@@ -540,21 +636,20 @@
     }
   });
 
-  async function refreshState() {
-    try {
-      const s = await (await fetch('/api/state')).json();
-      applyServer(s);
-      return s;
-    } catch { return null; }
-  }
-
   renderMe();
   renderOdds();
-  refreshState().then((s) => {
-    if (s && s.waitMs > 0) readyAt = Date.now() + s.waitMs;
+  setMode();
+  connect().then(async (online) => {
+    setMode();
+    if (online) {
+      const s = await refreshState();
+      if (s && s.waitMs > 0) readyAt = Date.now() + s.waitMs;
+      setInterval(() => { if (!document.hidden && !rolling) refreshState(); }, 60_000);
+    } else {
+      readyAt = store.get('gt_next', 0);
+    }
     requestAnimationFrame(tick);
   });
-  setInterval(() => { if (!document.hidden && !rolling) refreshState(); }, 30_000);
 })();
 </script>
 </body>

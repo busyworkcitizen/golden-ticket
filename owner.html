@@ -75,7 +75,13 @@
     <p class="sub">Owner-only list of every golden ticket and its code. <a href="/">Back to the game</a></p>
   </header>
 
-  <section class="panel" id="loginPanel">
+  <section class="panel" id="noServer" hidden>
+    <p style="margin:0">The winners list lives on the table server, and this site isn't connected to one yet.
+    Set it up (it's free) by following <strong>Table server</strong> in the README, then put its URL in <code>config.json</code>.</p>
+    <p class="msg" style="color:var(--muted)">Until then, rolls happen in each player's browser, so ticket codes can't be checked here.</p>
+  </section>
+
+  <section class="panel" id="loginPanel" hidden>
     <form id="loginForm">
       <input type="password" id="password" placeholder="Owner password" autocomplete="current-password" required aria-label="Owner password">
       <button type="submit">Show winners</button>
@@ -117,27 +123,35 @@
     get() { try { return sessionStorage.getItem(KEY) || ''; } catch { return ''; } },
     set(v) { try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch {} },
   };
+  const ERRORS = {
+    wrong_password: 'Wrong password.',
+    locked: 'Too many wrong passwords. Try again in 15 minutes.',
+    owner_off: 'The owner page is off. Add an ADMIN_PASSWORD secret to the Worker to turn it on.',
+    origin_not_allowed: "The table server doesn't accept this site. Add it to ALLOWED_ORIGINS in wrangler.toml.",
+    rate_limited: 'Too many tries. Wait a minute.',
+  };
+  let serverUrl = '';
   let winners = [];
 
   async function load(password) {
     $('loginMsg').textContent = '';
     let res, data;
     try {
-      res = await fetch('/api/owner/winners', {
+      res = await fetch(serverUrl + '/api/owner', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
       data = await res.json();
     } catch {
-      $('loginMsg').textContent = "Couldn't reach the server.";
+      $('loginMsg').textContent = "Couldn't reach the table server.";
       return;
     }
     if (!res.ok) {
       session.set('');
       $('dashboard').hidden = true;
       $('loginPanel').hidden = false;
-      $('loginMsg').textContent = data.error || 'Something went wrong.';
+      $('loginMsg').textContent = ERRORS[data.error] || 'Something went wrong.';
       return;
     }
     session.set(password);
@@ -205,8 +219,17 @@
     $('loginPanel').hidden = false;
   });
 
-  const saved = session.get();
-  if (saved) load(saved);
+  fetch('config.json', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((c) => String(c?.serverUrl || '').trim().replace(/\/+$/, ''))
+    .catch(() => '')
+    .then((url) => {
+      if (!/^https?:\/\/[^\s]+$/.test(url)) { $('noServer').hidden = false; return; }
+      serverUrl = url;
+      $('loginPanel').hidden = false;
+      const saved = session.get();
+      if (saved) load(saved);
+    });
 })();
 </script>
 </body>
