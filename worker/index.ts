@@ -18,6 +18,7 @@ const DEFAULT_ODDS = 10_000;
 const COOLDOWN_MS = 10_000;
 const LOCKOUT_MS = 15 * 60_000;
 const MAX_FAILS = 5;
+const LEADERBOARD_SIZE = 10;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no look-alike characters
 
 /* ---------------- Helpers ---------------- */
@@ -73,6 +74,7 @@ export class Table extends DurableObject<Env> {
       `INSERT OR IGNORE INTO stats (id, total_rolls) VALUES (1, 0)`,
       `CREATE TABLE IF NOT EXISTS winners (code TEXT PRIMARY KEY, name TEXT NOT NULL, at INTEGER NOT NULL,
          roll_number INTEGER NOT NULL, ip TEXT NOT NULL, player TEXT NOT NULL)`,
+      `CREATE INDEX IF NOT EXISTS winners_player ON winners (player, at)`,
       `CREATE TABLE IF NOT EXISTS owner_fails (ip TEXT PRIMARY KEY, count INTEGER NOT NULL, since INTEGER NOT NULL)`,
     ]) this.sql.exec(stmt);
   }
@@ -94,19 +96,43 @@ export class Table extends DurableObject<Env> {
     return Math.max(0, wait);
   }
 
-  private publicState() {
-    const recent = this.sql.exec("SELECT name, at FROM winners ORDER BY at DESC LIMIT 5").toArray() as Row[];
+  // Players ranked by golden tickets won; ties go to whoever found their first ticket earliest.
+  // Each player shows under the name they used on their latest win. `you` marks the caller's row.
+  private leaderboard(player: string) {
+    const ranked = `SELECT player, COUNT(*) AS tickets, MIN(at) AS first_at, MAX(at) AS last_at,
+        (SELECT name FROM winners w2 WHERE w2.player = w.player ORDER BY at DESC LIMIT 1) AS name
+      FROM winners w GROUP BY player`;
+    const toEntry = (r: Row, rank: number) => ({
+      rank,
+      name: String(r.name),
+      tickets: Number(r.tickets),
+      lastAt: new Date(Number(r.last_at)).toISOString(),
+      you: r.player === player,
+    });
+    const top = (this.sql.exec(`${ranked} ORDER BY tickets DESC, first_at ASC LIMIT ${LEADERBOARD_SIZE}`).toArray() as Row[])
+      .map((r, i) => toEntry(r, i + 1));
+    if (top.some((e) => e.you)) return top;
+    const mine = this.one(`SELECT * FROM (${ranked}) WHERE player = ?`, player);
+    if (!mine) return top;
+    const ahead = this.one(
+      `SELECT COUNT(*) AS n FROM (${ranked}) WHERE tickets > ? OR (tickets = ? AND first_at < ?)`,
+      mine.tickets, mine.tickets, mine.first_at,
+    );
+    return [...top, toEntry(mine, Number(ahead?.n ?? 0) + 1)];
+  }
+
+  private publicState(player: string) {
     return {
       odds: oddsOf(this.env),
       cooldownMs: COOLDOWN_MS,
       totalRolls: this.totalRolls(),
       winnerCount: Number(this.one("SELECT COUNT(*) AS n FROM winners")?.n ?? 0),
-      recentWinners: recent.map((w) => ({ name: String(w.name), at: new Date(Number(w.at)).toISOString() })),
+      leaderboard: this.leaderboard(player),
     };
   }
 
   async state(player: string, ip: string) {
-    return { ...this.publicState(), waitMs: this.waitMs([`p:${player}`, `ip:${ip}`], Date.now()) };
+    return { ...this.publicState(player), waitMs: this.waitMs([`p:${player}`, `ip:${ip}`], Date.now()) };
   }
 
   async roll(player: string, ip: string, rawName: unknown) {
@@ -134,7 +160,7 @@ export class Table extends DurableObject<Env> {
       );
       ticket = { code, name, at: new Date(now).toISOString(), rollNumber };
     }
-    return { ...this.publicState(), roll, win, ticket, waitMs: COOLDOWN_MS };
+    return { ...this.publicState(player), roll, win, ticket, waitMs: COOLDOWN_MS };
   }
 
   async owner(password: unknown, ip: string) {

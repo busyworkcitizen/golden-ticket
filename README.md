@@ -6,10 +6,12 @@ Play it at **https://busyworkcitizen.github.io/golden-ticket/** once GitHub Page
 
 ## How to play
 
-- **Roll.** Press the button (or Space). You get a number from 1 to 10,000. Only 10,000 wins.
+- **Roll.** Press the button (or Space). Five slot reels spin and stop one by one on a number from 1 to 10,000. Only 10,000 wins.
+- **Suspense.** If the reels are on track for a close call (9…, 99…, 999…), the next reel holds back and the ticket starts to glow. A win builds all the way up.
 - **Wait.** Then you wait 10 seconds before you can roll again. The countdown ring shows how long.
 - **Auto-roll.** Turn it on and the page rolls for you every 10 seconds while it's open.
 - **Win.** You get a golden ticket with a code. Screenshot it and show the code to the owner.
+- **Sound.** Clicks, thunks and a win chime, made in the browser. Turn them off with the Sound switch.
 
 At one roll every 10 seconds, the average player needs about 28 hours of non-stop rolling to win.
 
@@ -24,7 +26,7 @@ A minute later it's live at `https://busyworkcitizen.github.io/golden-ticket/`.
 ### Two ways it runs
 
 - **Public site, on its own.** Rolls and the 10-second wait happen in each player's browser, and stats are saved there. It works right away, but anyone who knows how to use their browser's developer tools could fake a win, and you have no list of winners to check codes against.
-- **Public site with the table server** (below, free). The server does every roll, so wins can't be faked. It enforces the 10-second limit per player *and* per IP address, counts rolls from everyone, shows recent winners on the page, and saves every winner. You check them on the owner page.
+- **Public site with the table server** (below, free). The server does every roll, so wins can't be faked. It enforces the 10-second limit per player *and* per IP address, counts rolls from everyone, shows the winners leaderboard, and saves every winner. You check them on the owner page.
 
 ### Table server (free)
 
@@ -46,6 +48,17 @@ How the server keeps it fair:
 Cloudflare's free plan allows about 100,000 requests a day. Each roll is one request, so that's roughly 10 people auto-rolling around the clock, or many more casual players.
 
 If you host the site somewhere other than `https://busyworkcitizen.github.io`, add that origin to `ALLOWED_ORIGINS`.
+
+## Winners leaderboard
+
+With the table server connected, the game page shows a leaderboard of everyone who has found a golden ticket:
+
+- Players are ranked by how many tickets they've won. Ties go to whoever found their first ticket earliest.
+- It shows the top 10, with medals for the top 3. If you've won but aren't in the top 10, your own row is added underneath.
+- Your row is highlighted, and it flashes when you win.
+- Each player appears under the name they typed on their latest win. Names and dates are public; ticket codes and IP addresses are not.
+
+The leaderboard needs the table server, since it's the only place every player's wins are collected. On its own, the site shows each player only their own tickets.
 
 ## Checking winners
 

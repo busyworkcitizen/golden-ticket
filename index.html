@@ -75,8 +75,25 @@
             mask:
       radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
       radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
-    transition: box-shadow .4s;
+    transition: border-color .4s;
   }
+  .ticket > * { position: relative; z-index: 1; }
+  .ticket::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse 70% 62% at 50% 52%, rgba(242, 201, 76, .34), transparent 72%);
+    transition: opacity .45s ease;
+  }
+  .ticket.spinning::after { opacity: .3; }
+  .ticket[data-heat="1"]::after { opacity: .6; }
+  .ticket[data-heat="2"]::after { opacity: .85; animation: heartbeat .9s ease-in-out infinite; }
+  .ticket[data-heat="3"]::after, .ticket[data-heat="4"]::after { opacity: 1; animation: heartbeat .55s ease-in-out infinite; }
+  .ticket[data-heat="3"], .ticket[data-heat="4"] { border-color: rgba(242, 201, 76, .5); }
+  .ticket.jackpot { border-color: rgba(242, 201, 76, .8); }
+  .ticket.jackpot::after {
+    opacity: 1; animation: none;
+    background: radial-gradient(ellipse 85% 75% at 50% 52%, rgba(255, 228, 140, .6), rgba(242, 201, 76, .14) 72%);
+  }
+  @keyframes heartbeat { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.07); } }
   .ticket::before {
     content: ""; position: absolute; inset: 8px 28px; pointer-events: none;
     border: 1px dashed rgba(242, 201, 76, .2); border-radius: 8px;
@@ -86,14 +103,24 @@
     font-size: 11px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
   }
   .roll-number {
-    font-family: var(--display); font-size: clamp(68px, 21vw, 116px); line-height: 1.08;
-    text-align: center; margin: 8px 0 0; color: var(--text);
-    transition: color .2s;
+    font-family: var(--display); font-size: clamp(60px, 18vw, 112px); line-height: 1.1;
+    display: flex; justify-content: center; height: 1.1em; margin: 8px 0 0; color: var(--text);
   }
-  .roll-number.spinning { color: #7d6a50; }
-  .roll-number.won {
-    background: var(--gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+  .reel { position: relative; width: .66em; height: 1.1em; transition: opacity .35s ease, color .3s ease, filter .3s ease; }
+  .reel-window {
+    display: block; height: 100%; overflow: hidden;
+    -webkit-mask-image: linear-gradient(transparent, #000 13%, #000 87%, transparent);
+            mask-image: linear-gradient(transparent, #000 13%, #000 87%, transparent);
   }
+  .strip { display: flex; flex-direction: column; will-change: transform; }
+  .strip span { display: block; height: 1.1em; line-height: 1.1em; text-align: center; }
+  .sep { width: .24em; text-align: center; transition: opacity .35s ease; }
+  .reel.lead, .sep.lead { opacity: .16; }
+  .reel.hot { color: var(--gold-2); filter: drop-shadow(0 0 .08em rgba(242, 201, 76, .75)); }
+  .ticket.jackpot .reel { color: var(--gold-1); filter: drop-shadow(0 0 .12em rgba(242, 201, 76, .95)); }
+  .sep.hot { color: var(--gold-2); }
+  .ticket.jackpot .sep { color: var(--gold-1); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .roll-meta { text-align: center; color: var(--muted); font-size: 14px; margin: 0; }
   .verdict {
     text-align: center; margin: 10px 0 0; min-height: 1.5em; font-weight: 600; color: var(--gold-2);
@@ -124,6 +151,8 @@
   }
   .roll-btn:disabled small { color: var(--muted); opacity: 1; }
   .roller.ready .ring-fill { animation: pulse 1.6s ease-in-out infinite; }
+  .roller.rolling .ring { animation: ringspin .8s linear infinite; }
+  @keyframes ringspin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
   @keyframes pulse { 50% { stroke: var(--gold-1); } }
 
   /* Controls */
@@ -167,6 +196,26 @@
   .winners li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
   .winners li span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .winners li span:last-child { color: var(--muted); flex: none; }
+  .board-head { justify-content: space-between; }
+  .board-head .found { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 13px; }
+  .board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .board li {
+    display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; align-items: baseline; gap: 12px;
+    padding: 8px 10px; border-radius: 8px; font-size: 14px;
+  }
+  .board li.top { background: rgba(242, 201, 76, .06); }
+  .board li.you { background: rgba(242, 201, 76, .1); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .55); }
+  .board li.gap { display: block; padding: 0; text-align: center; color: var(--muted); }
+  .board .rank { text-align: center; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .board .rank.medal { font-size: 19px; line-height: 1; align-self: center; }
+  .board .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board .tag { margin-left: 8px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-2); }
+  .board .tix { font-weight: 700; color: var(--gold-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .board .when { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  @media (max-width: 380px) {
+    .board li { grid-template-columns: 2em minmax(0, 1fr) auto; }
+    .board .when { display: none; }
+  }
   .winners li span.code { font: 700 14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .04em; color: var(--gold-2); }
   footer { color: #8a7659; font-size: 13px; text-align: center; max-width: 46ch; }
 
@@ -240,9 +289,10 @@
     <p class="sub">Everyone gets <strong>one roll every 10 seconds</strong>. Roll a perfect <strong data-odds>10,000</strong> and the golden ticket is yours.</p>
   </header>
 
-  <section class="ticket" aria-label="Your roll">
+  <section class="ticket" id="ticket" aria-label="Your roll">
     <div class="ticket-top"><span>Admit one</span><span id="ticketNo">No. 0000</span></div>
-    <p class="roll-number" id="rollNumber">—</p>
+    <div class="roll-number" id="rollNumber" aria-hidden="true"></div>
+    <span class="sr-only" id="rollSr" aria-live="polite"></span>
     <p class="roll-meta">out of <span data-odds>10,000</span></p>
     <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
   </section>
@@ -268,6 +318,11 @@
       <span class="switch" aria-hidden="true"></span>
       <span>Auto-roll</span>
     </label>
+    <label class="toggle">
+      <input type="checkbox" id="sound">
+      <span class="switch" aria-hidden="true"></span>
+      <span>Sound</span>
+    </label>
   </div>
 
   <section class="stats" aria-label="Stats">
@@ -288,9 +343,9 @@
   </section>
 
   <section class="panel" id="hallPanel" hidden>
-    <h2>Golden tickets found <span class="count" id="winnerCount">0</span></h2>
-    <ol class="winners" id="winners"></ol>
-    <p class="empty" id="winnersEmpty">No one has found it yet. Will it be you?</p>
+    <h2 class="board-head">Winners leaderboard <span class="found" id="winnerCount"></span></h2>
+    <ol class="board" id="board"></ol>
+    <p class="empty" id="boardEmpty">No one has found a golden ticket yet. The first one takes the top spot.</p>
   </section>
 
   <footer id="oddsNote">Every roll is a fresh 1 in 10,000 chance.</footer>
@@ -344,6 +399,7 @@
   autoInput.checked = store.get('gt_auto', false);
   nameInput.addEventListener('change', () => store.set('gt_name', nameInput.value.trim()));
   autoInput.addEventListener('change', () => store.set('gt_auto', autoInput.checked));
+  const soundInput = $('sound');
 
   // ---- Randomness ------------------------------------------------------
   function randomInt(n) { // uniform in [0, n) with no modulo bias
@@ -466,12 +522,69 @@
 
   function applyServer(s) {
     if (s.odds) odds = s.odds;
+    if (!rolling && reels.length !== String(odds).length) showStatic(me.recent[0] || 0);
     if (s.cooldownMs) cooldownMs = s.cooldownMs;
     $('stat3').textContent = fmt(s.totalRolls);
-    $('winnerCount').textContent = fmt(s.winnerCount);
-    $('winners').replaceChildren(...(s.recentWinners || []).map((w) => listItem('🎫 ' + w.name, shortDate(w.at))));
-    $('winnersEmpty').hidden = s.winnerCount > 0;
+    $('winnerCount').textContent = s.winnerCount ? `${fmt(s.winnerCount)} found` : '';
+    renderBoard(s.leaderboard || []);
     renderOdds();
+  }
+
+  // ---- Winners leaderboard (from the table server) ----------------------
+  let boardTickets = null;   // your ticket count on the board, to spot a new win
+  let flashPending = false;
+
+  function flashMyRow() {
+    $('board').querySelector('li.you')?.animate([
+      { boxShadow: 'inset 0 0 0 1px rgba(242, 201, 76, .55), 0 0 0 0 rgba(242, 201, 76, .6)' },
+      { boxShadow: 'inset 0 0 0 1px rgba(242, 201, 76, 1), 0 0 0 10px rgba(242, 201, 76, 0)' },
+    ], { duration: 900, iterations: 3, easing: 'ease-out' });
+  }
+
+  function renderBoard(rows) {
+    const items = [];
+    rows.forEach((e, i) => {
+      if (i > 0 && e.rank > rows[i - 1].rank + 1) {
+        const gap = document.createElement('li');
+        gap.className = 'gap';
+        gap.textContent = '⋯';
+        gap.setAttribute('aria-hidden', 'true');
+        items.push(gap);
+      }
+      const li = document.createElement('li');
+      li.className = [e.rank <= 3 ? 'top' : '', e.you ? 'you' : ''].join(' ').trim();
+      const rank = document.createElement('span');
+      rank.className = 'rank' + (e.rank <= 3 ? ' medal' : '');
+      rank.textContent = ['🥇', '🥈', '🥉'][e.rank - 1] || `#${e.rank}`;
+      rank.title = `Rank ${e.rank}`;
+      const who = document.createElement('span');
+      who.className = 'who';
+      who.textContent = e.name;
+      if (e.you) {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'you';
+        who.append(tag);
+      }
+      const tix = document.createElement('span');
+      tix.className = 'tix';
+      tix.textContent = `🎫 ${fmt(e.tickets)}`;
+      tix.title = `${fmt(e.tickets)} golden ${e.tickets === 1 ? 'ticket' : 'tickets'}`;
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = shortDate(e.lastAt);
+      li.append(rank, who, tix, when);
+      items.push(li);
+    });
+    $('board').replaceChildren(...items);
+    $('boardEmpty').hidden = rows.length > 0;
+
+    const mine = rows.find((e) => e.you)?.tickets ?? 0;
+    if (boardTickets !== null && mine > boardTickets) {
+      if ($('winOverlay').hidden) flashMyRow();
+      else flashPending = true;
+    }
+    boardTickets = mine;
   }
 
   function verdictFor(roll) {
@@ -497,10 +610,11 @@
     const ready = remaining === 0 && !rolling;
     btn.disabled = !ready;
     $('roller').classList.toggle('ready', ready);
+    $('roller').classList.toggle('rolling', rolling);
     if (rolling) {
       label.textContent = '…';
       hint.textContent = 'rolling';
-      $('ringFill').style.strokeDashoffset = String(RING);
+      $('ringFill').style.strokeDashoffset = String(RING * 0.72);
     } else if (remaining > 0) {
       label.textContent = Math.ceil(remaining / 1000) + 's';
       hint.textContent = 'next roll';
@@ -514,47 +628,297 @@
     requestAnimationFrame(tick);
   }
 
-  // ---- Rolling ---------------------------------------------------------
+  // ---- Sound (synthesized with Web Audio; nothing to download) ----------
+  const sfx = (() => {
+    let ac = null;
+    let on = store.get('gt_sound', true);
+    function unlock() {
+      if (!on) return;
+      try {
+        ac ??= new (window.AudioContext || window.webkitAudioContext)();
+        if (ac.state === 'suspended') ac.resume();
+      } catch {}
+    }
+    function tone(freq, { to = 0, dur = 0.1, type = 'sine', gain = 0.1, at = 0 } = {}) {
+      if (!on || !ac) return;
+      const t = ac.currentTime + at;
+      const osc = ac.createOscillator();
+      const amp = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if (to) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+      amp.gain.setValueAtTime(0.0001, t);
+      amp.gain.exponentialRampToValueAtTime(gain, t + 0.006);
+      amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(amp).connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.05);
+    }
+    return {
+      get on() { return on; },
+      set on(v) { on = v; store.set('gt_sound', v); unlock(); },
+      unlock,
+      tick: () => tone(1900 + Math.random() * 400, { dur: 0.018, type: 'square', gain: 0.016 }),
+      thunk: (i) => {
+        tone(160, { to: 55, dur: 0.16, gain: 0.32 });
+        tone(880 + i * 150, { dur: 0.05, type: 'triangle', gain: 0.05 });
+      },
+      tease: (h) => tone(330 * 2 ** (h / 4), { to: 330 * 2 ** ((h + 1.5) / 4), dur: 0.5, type: 'triangle', gain: 0.07 }),
+      close: () => {
+        tone(523.25, { to: 466.16, dur: 0.22, type: 'triangle', gain: 0.06 });
+        tone(392, { to: 349.23, dur: 0.4, type: 'triangle', gain: 0.06, at: 0.2 });
+      },
+      win: () => [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093]
+        .forEach((f, i) => tone(f, { dur: 0.7, type: 'triangle', gain: 0.09, at: i * 0.075 })),
+    };
+  })();
+
+  // ---- Slot reels --------------------------------------------------------
+  const CELL = 1.1;      // em: height of one digit on a reel
+  const STRIP = 60;      // digits on each reel strip (0-9, six times)
+  const LOOP_MS = 230;   // one full turn of ten digits at top speed
+  const TEASE = ['', 'Ooh…', 'Wait for it…', 'No way…', 'Oh my…'];
+  let reels = [];
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const yAt = (index) => `translateY(${(-index * CELL).toFixed(4)}em)`;
+  const digitsOf = (value) => String(Math.max(0, Math.floor(value))).padStart(reels.length, '0').slice(-reels.length);
+
+  function buildReels() {
+    const n = String(odds).length;
+    if (reels.length === n) return;
+    const box = $('rollNumber');
+    box.replaceChildren();
+    reels = [];
+    for (let i = 0; i < n; i++) {
+      const reel = document.createElement('span');
+      reel.className = 'reel';
+      const strip = document.createElement('span');
+      strip.className = 'strip';
+      for (let k = 0; k < STRIP; k++) {
+        const cell = document.createElement('span');
+        cell.textContent = String(k % 10);
+        strip.append(cell);
+      }
+      const win = document.createElement('span');
+      win.className = 'reel-window';
+      win.append(strip);
+      reel.append(win);
+      box.append(reel);
+      const r = { reel, strip, spinning: false, sep: null };
+      const right = n - 1 - i; // digits to the right of this one
+      if (right > 0 && right % 3 === 0) {
+        r.sep = document.createElement('span');
+        r.sep.className = 'sep';
+        r.sep.textContent = ',';
+        box.append(r.sep);
+      }
+      reels.push(r);
+    }
+  }
+
+  function markLeading(d) {
+    let first = d.search(/[1-9]/);
+    if (first < 0) first = d.length;
+    reels.forEach((r, i) => {
+      r.reel.classList.toggle('lead', i < first);
+      r.sep?.classList.toggle('lead', i < first);
+    });
+  }
+
+  function showStatic(value) {
+    buildReels();
+    const d = digitsOf(value);
+    reels.forEach((r, i) => {
+      r.strip.getAnimations().forEach((a) => a.cancel());
+      r.strip.style.transform = yAt(Number(d[i]));
+      r.strip.style.filter = '';
+      r.reel.classList.remove('hot');
+      r.sep?.classList.remove('hot');
+      r.spinning = false;
+    });
+    markLeading(d);
+  }
+
+  // Where a strip is right now (in digit cells), even mid-animation.
+  function indexNow(strip) {
+    const cs = getComputedStyle(strip);
+    const m = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform);
+    return -m.m42 / (parseFloat(cs.fontSize) * CELL);
+  }
+
+  function spinReel(r, delay) {
+    const from = ((Math.round(indexNow(r.strip)) % 10) + 10) % 10;
+    r.strip.getAnimations().forEach((a) => a.cancel());
+    r.strip.style.transform = yAt(from);
+    r.reel.classList.remove('lead', 'hot');
+    r.sep?.classList.remove('lead', 'hot');
+    r.spinning = true;
+    // A little pull-back, then accelerate into a blur.
+    const windup = r.strip.animate([
+      { transform: yAt(from), filter: 'blur(0px)', easing: 'ease-out' },
+      { transform: yAt(from - 0.3), filter: 'blur(0px)', offset: 0.2, easing: 'cubic-bezier(.55,0,.75,.6)' },
+      { transform: yAt(from + 10), filter: 'blur(1.6px)' },
+    ], { duration: 420, delay, fill: 'forwards' });
+    windup.onfinish = () => {
+      r.strip.style.filter = 'blur(1.6px)';
+      r.strip.animate([{ transform: yAt(from + 10) }, { transform: yAt(from + 20) }], { duration: LOOP_MS, iterations: Infinity });
+    };
+  }
+
+  // Ease a spinning strip to rest on `digit`, overshoot a touch, and settle.
+  function stopReel(r, digit, duration) {
+    const from = indexNow(r.strip);
+    r.strip.getAnimations().forEach((a) => a.cancel());
+    let target = Math.ceil(from + 9);
+    target += (digit - (target % 10) + 10) % 10;
+    r.strip.style.transform = yAt(target);
+    r.strip.style.filter = '';
+    const anim = r.strip.animate([
+      { transform: yAt(from), filter: 'blur(1.6px)', easing: 'cubic-bezier(.3,.55,.4,1)' },
+      { transform: yAt(target + 0.16), filter: 'blur(0px)', offset: 0.8, easing: 'cubic-bezier(.4,0,.6,1)' },
+      { transform: yAt(target - 0.05), offset: 0.91, easing: 'ease-in-out' },
+      { transform: yAt(target) },
+    ], { duration });
+    return new Promise((resolve) => { anim.onfinish = resolve; anim.oncancel = resolve; });
+  }
+
+  // How exciting each landed prefix is: on track for the winning number, or for one short of it.
+  function heatPlan(d) {
+    const tracks = [[digitsOf(odds), 1], [digitsOf(odds - 1), 0]];
+    return [...d].map((_, i) => {
+      const prefix = d.slice(0, i + 1);
+      for (const [track, bonus] of tracks) {
+        const tp = track.slice(0, i + 1);
+        const first = tp.search(/[1-9]/);
+        if (prefix === tp && first >= 0) return Math.min(4, i + 1 - first + bonus);
+      }
+      return 0;
+    });
+  }
+
+  function reelLanded(i, d, heat) {
+    const r = reels[i];
+    const ticket = $('ticket');
+    sfx.thunk(i);
+    const lead = /^0*$/.test(d.slice(0, i + 1));
+    r.reel.classList.toggle('lead', lead);
+    r.sep?.classList.toggle('lead', lead);
+    if (heat) {
+      r.reel.classList.add('hot');
+      if (i > 0) reels[i - 1].sep?.classList.add('hot');
+    } else {
+      reels.forEach((x) => { x.reel.classList.remove('hot'); x.sep?.classList.remove('hot'); });
+    }
+    ticket.dataset.heat = String(heat);
+    if (heat && i < reels.length - 1) {
+      sfx.tease(heat);
+      setVerdict(TEASE[heat]);
+    }
+    ticket.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(2px)' }, { transform: 'translateY(0)' }],
+      { duration: 160, easing: 'ease-out' });
+  }
+
   function startSpin() {
-    const el = $('rollNumber');
-    el.classList.remove('won');
-    el.classList.add('spinning');
-    if (reducedMotion) { el.textContent = '…'; return () => el.classList.remove('spinning'); }
-    const timer = setInterval(() => { el.textContent = fmt(1 + Math.floor(Math.random() * odds)); }, 55);
-    return () => { clearInterval(timer); el.classList.remove('spinning'); };
+    buildReels();
+    const ticket = $('ticket');
+    ticket.classList.remove('jackpot');
+    ticket.dataset.heat = '0';
+    if (reducedMotion) {
+      return { land: async (value) => { showStatic(value); sfx.thunk(0); } };
+    }
+    ticket.classList.add('spinning');
+    reels.forEach((r, i) => spinReel(r, i * 40));
+    (function clicks() {
+      const spinning = reels.filter((r) => r.spinning).length;
+      if (!spinning) return;
+      sfx.tick();
+      setTimeout(clicks, 55 + (reels.length - spinning) * 45);
+    })();
+
+    return {
+      // Stop the reels left to right. A hot prefix holds the next reel back for suspense.
+      land(value, { quiet = false } = {}) {
+        const d = digitsOf(value);
+        const heat = quiet ? [...d].map(() => 0) : heatPlan(d);
+        return new Promise((resolve) => {
+          let landAt = 0;
+          reels.forEach((r, i) => {
+            const prev = i ? heat[i - 1] : 0;
+            const duration = 600 + prev * 220;
+            landAt = i ? landAt + (quiet ? 90 : 170) + prev * 400 : duration;
+            setTimeout(() => {
+              stopReel(r, Number(d[i]), duration).then(() => {
+                r.spinning = false;
+                reelLanded(i, d, heat[i]);
+                if (i === reels.length - 1) {
+                  ticket.classList.remove('spinning');
+                  resolve(heat[i]);
+                }
+              });
+            }, Math.max(0, landAt - duration));
+          });
+        });
+      },
+    };
+  }
+
+  function finale(value, win, finalHeat) {
+    const ticket = $('ticket');
+    const nearMiss = !win && odds >= 100 && value >= odds * 0.99;
+    if (win) {
+      ticket.classList.add('jackpot');
+      sfx.win();
+    } else if (finalHeat >= 2 || nearMiss) {
+      sfx.close();
+    }
+    if (!reducedMotion) {
+      const peak = win ? 1.2 : nearMiss || finalHeat ? 1.1 : 1.06;
+      $('rollNumber').animate([
+        { transform: 'scale(1)' },
+        { transform: `scale(${peak})`, offset: 0.35 },
+        { transform: 'scale(.985)', offset: 0.72 },
+        { transform: 'scale(1)' },
+      ], { duration: win ? 650 : 380, easing: 'ease-out' });
+    }
+    if (!win) setTimeout(() => { if (!rolling) ticket.dataset.heat = '0'; }, 900);
   }
 
   async function roll() {
     if (rolling || Date.now() < readyAt) return;
     rolling = true;
+    sfx.unlock();
     const name = nameInput.value.trim().slice(0, 40);
     store.set('gt_name', name);
     setVerdict('Rolling…');
-    const stopSpin = startSpin();
-    const minSpin = new Promise((r) => setTimeout(r, reducedMotion ? 0 : 750));
+    if (!reducedMotion) {
+      btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(.9)' }, { transform: 'scale(1.04)' }, { transform: 'scale(1)' }],
+        { duration: 380, easing: 'ease-out' });
+    }
+    const spin = startSpin();
+    const minSpin = sleep(reducedMotion ? 0 : 550);
     const result = await requestRoll(name);
     await minSpin;
-    stopSpin();
 
-    const el = $('rollNumber');
-    const last = me.recent[0] ? fmt(me.recent[0]) : '—';
+    const last = me.recent[0] || 0;
     if (!result) {
-      el.textContent = last;
+      await spin.land(last, { quiet: true });
       setVerdict("Couldn't reach the ticket server. Trying again shortly.", true);
       readyAt = Date.now() + 3000;
     } else if (result.status === 429) {
-      el.textContent = last;
       readyAt = Date.now() + (result.data.waitMs || cooldownMs);
+      await spin.land(last, { quiet: true });
       setVerdict(`Easy there. One roll every ${cooldownMs / 1000} seconds.`, true);
     } else if (result.status !== 200) {
-      el.textContent = last;
+      await spin.land(last, { quiet: true });
       setVerdict('Something went wrong. Try again in a moment.', true);
       readyAt = Date.now() + 3000;
     } else {
       const data = result.data;
-      if (serverUrl) applyServer(data);
       readyAt = Date.now() + data.waitMs;
-      el.textContent = fmt(data.roll);
+      const finalHeat = await spin.land(data.roll);
+      finale(data.roll, data.win, finalHeat);
+      if (serverUrl && !data.win) applyServer(data);
       me.rolls += 1;
       me.best = Math.max(me.best, data.roll);
       me.recent = [data.roll, ...me.recent].slice(0, 12);
@@ -565,14 +929,18 @@
       }
       renderMe();
       setVerdict(verdictFor(data.roll));
-      if (data.win) celebrate(data.ticket);
+      $('rollSr').textContent = `You rolled ${fmt(data.roll)}.`;
+      if (data.win) {
+        await sleep(reducedMotion ? 300 : 1100);
+        celebrate(data.ticket);
+        if (serverUrl) applyServer(data); // after the overlay is up, so your new row flashes when it closes
+      }
     }
     rolling = false;
   }
 
   // ---- Winning ---------------------------------------------------------
   function celebrate(ticket) {
-    $('rollNumber').classList.add('won');
     autoInput.checked = false;
     store.set('gt_auto', false);
     $('winName').textContent = ticket.name;
@@ -589,6 +957,11 @@
     $('winOverlay').hidden = true;
     document.title = 'Golden Ticket';
     btn.focus();
+    if (flashPending) {
+      flashPending = false;
+      $('hallPanel').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      setTimeout(flashMyRow, reducedMotion ? 0 : 450);
+    }
   });
 
   function confetti() {
@@ -636,6 +1009,9 @@
     }
   });
 
+  soundInput.checked = sfx.on;
+  soundInput.addEventListener('change', () => { sfx.on = soundInput.checked; });
+  showStatic(me.recent[0] || 0);
   renderMe();
   renderOdds();
   setMode();
