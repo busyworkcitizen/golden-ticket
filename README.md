@@ -22,7 +22,9 @@ At one roll every 5 seconds, the average player needs about 14 hours of non-stop
 
 - **Today bar:** whether today's ticket is still out there or who claimed it, today's roll count and when the next ticket drops.
 - **The ticket:** five slot reels in a recessed window. Sparks fly as each reel lands; a near miss dims the page around the ticket and the gold dust speeds up. On a computer the ticket tilts and catches the light as you move the mouse.
-- **The coin:** press it (or Space) to roll. The ring around it counts down to your next roll.
+- **The coin:** press it (or Space) to roll. The ring around it counts down to your next roll, and a dashed ring orbits it while auto-roll is on. On a phone, a small floating coin appears when you scroll down, so you can roll from anywhere.
+- **Keys:** Space rolls, A turns auto-roll on and off, M turns sound on and off.
+- **Sound:** each reel clacks for every digit it passes as it slows down, then lands with a thunk.
 - **When the day is claimed:** the ticket is stamped CLAIMED (or YOURS) and a split-flap clock counts down to midnight.
 - **Your stats, last rolls, golden tickets and the winners leaderboard** sit beside the game on wide screens and below it on phones.
 - Everything animated respects the system's *reduce motion* setting. The gold dust pauses whenever the browser window isn't focused, so it costs nothing while you're in a game.

@@ -353,6 +353,26 @@
   .toggle input:checked + .switch::after { transform: translateX(16px); background: var(--gold-1); }
   .toggle input:focus-visible + .switch { outline: 2px solid var(--gold-1); outline-offset: 2px; }
   .pop-btn { font: 500 14px var(--sans); }
+  .keys { margin: 0; text-align: center; font-size: 12px; color: var(--faint); }
+  .keys kbd {
+    font: 600 11px var(--sans); padding: 1px 6px; margin: 0 3px 0 10px; border-radius: 5px; color: var(--muted);
+    background: rgba(242, 201, 76, .06); border: 1px solid var(--line); border-bottom-width: 2px;
+  }
+  .keys kbd:first-child { margin-left: 0; }
+
+  /* Phones: a floating roll button once the coin scrolls out of view */
+  .fab {
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20;
+    width: 74px; height: 74px; margin-left: -37px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    font: 800 15px/1 var(--sans); letter-spacing: .06em; color: var(--ink);
+    background: radial-gradient(circle at 34% 26%, #fff7d2 0%, #f6d469 20%, #dca828 48%, #a8730f 76%, #7a520a 100%);
+    box-shadow: 0 4px 0 #6b4708, 0 10px 26px rgba(0, 0, 0, .6), 0 0 30px rgba(242, 201, 76, .3);
+    transform: translateY(140%) scale(.6); opacity: 0; pointer-events: none;
+    transition: transform .4s var(--spring), opacity .25s;
+  }
+  .fab.show { transform: none; opacity: 1; pointer-events: auto; }
+  .fab:disabled { color: var(--text); background: radial-gradient(circle at 34% 26%, #46321f 0%, #2c1d12 55%, #1d130b 100%); box-shadow: 0 3px 0 #120a06, 0 10px 24px rgba(0, 0, 0, .6), inset 0 0 0 1px var(--line); }
+  @media (min-width: 1040px) { .fab { display: none; } }
 
   /* Stats + panels */
   .stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -644,6 +664,7 @@
 <canvas id="dust" aria-hidden="true"></canvas>
 <div class="spotlight" id="spotlight" aria-hidden="true"></div>
 <div class="toasts" id="toasts"></div>
+<button class="fab" id="fab" type="button" aria-label="Roll"><span id="fabLabel">ROLL</span></button>
 <main class="app">
   <div class="stage">
     <header class="hero">
@@ -725,6 +746,7 @@
         </label>
         <button class="toggle pop-btn" id="popOut" type="button" hidden title="Open a small always-on-top window you can keep over your games">⧉ Mini widget</button>
       </div>
+      <p class="keys" id="keys"><kbd>Space</kbd> roll <kbd>A</kbd> auto-roll <kbd>M</kbd> sound</p>
     </div>
   </div>
 
@@ -1294,6 +1316,7 @@
     const roller = $('roller');
     setFlag(roller, 'closed', closed);
     setFlag(roller, 'auto', autoInput.checked);
+    mirrorFab();
     if (closed) {
       const left = Math.max(0, today.resetAt - Date.now());
       if (!btn.disabled) btn.disabled = true;
@@ -1354,6 +1377,30 @@
         if (ac.state === 'suspended') ac.resume();
       } catch {}
     }
+    let noise = null;
+    // A short burst of noise through a band-pass filter: the clack of a mechanical reel.
+    function clack({ freq = 2400, gain = 0.08, q = 6, dur = 0.04 } = {}) {
+      if (!on || !ac) return;
+      if (!noise) {
+        const len = Math.floor(ac.sampleRate * 0.08);
+        noise = ac.createBuffer(1, len, ac.sampleRate);
+        const d = noise.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
+      }
+      const t = ac.currentTime;
+      const src = ac.createBufferSource();
+      src.buffer = noise;
+      const band = ac.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = freq;
+      band.Q.value = q;
+      const amp = ac.createGain();
+      amp.gain.setValueAtTime(gain, t);
+      amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(band).connect(amp).connect(ac.destination);
+      src.start(t);
+      src.stop(t + dur + 0.02);
+    }
     function tone(freq, { to = 0, dur = 0.1, type = 'sine', gain = 0.1, at = 0 } = {}) {
       if (!on || !ac) return;
       const t = ac.currentTime + at;
@@ -1373,10 +1420,12 @@
       get on() { return on; },
       set on(v) { on = v; store.set('gt_sound', v); unlock(); },
       unlock,
-      tick: () => tone(1900 + Math.random() * 400, { dur: 0.018, type: 'square', gain: 0.016 }),
+      tick: () => clack({ freq: 3400 + Math.random() * 600, gain: 0.018, q: 9, dur: 0.02 }),
+      notch: (i) => clack({ freq: 2300 + i * 220 + Math.random() * 120, gain: 0.05, q: 7, dur: 0.028 }),
       thunk: (i) => {
         tone(160, { to: 55, dur: 0.16, gain: 0.32 });
         tone(880 + i * 150, { dur: 0.05, type: 'triangle', gain: 0.05 });
+        clack({ freq: 950 + i * 60, gain: 0.2, q: 2.2, dur: 0.09 });
       },
       tease: (h) => tone(330 * 2 ** (h / 4), { to: 330 * 2 ** ((h + 1.5) / 4), dur: 0.5, type: 'triangle', gain: 0.07 }),
       close: () => {
@@ -1562,6 +1611,15 @@
   }
 
   function renderReels(now = performance.now()) {
+    reels.forEach((r, i) => {
+      if (r.motion.type !== 'stop') { r.lastCell = undefined; return; }
+      const cell = Math.floor(indexAt(r, now) + 0.5);
+      if (r.lastCell !== undefined && cell !== r.lastCell && now - (r.lastClack || 0) > 26) {
+        r.lastClack = now;
+        sfx.notch(i);
+      }
+      r.lastCell = cell;
+    });
     for (const r of reels) {
       const idx = indexAt(r, now);
       const blur = blurAt(r, now);
@@ -2259,6 +2317,21 @@
     requestAnimationFrame(step);
   }
 
+  // ---- Floating roll button (phones) -----------------------------------------------
+  let coinInView = true;
+  const fab = $('fab');
+  function mirrorFab() {
+    const show = !coinInView && !pip && $('winOverlay').hidden;
+    setFlag(fab, 'show', show);
+    if (!show) return;
+    setText($('fabLabel'), label.textContent);
+    if (fab.disabled !== btn.disabled) fab.disabled = btn.disabled;
+  }
+  fab.addEventListener('click', () => roll());
+  if ('IntersectionObserver' in window) {
+    // The coin counts as in view once most of it shows; a sliver at the screen edge is hard to tap.
+    new IntersectionObserver(([entry]) => { coinInView = entry.intersectionRatio >= 0.6; }, { threshold: [0, 0.3, 0.6, 0.9, 1] }).observe($('roller'));
+  }
   // ---- Title shine ------------------------------------------------------------
   (() => {
     const h1 = document.querySelector('h1');
@@ -2420,9 +2493,16 @@
   // ---- Start -----------------------------------------------------------
   btn.addEventListener('click', roll);
   function onKey(e) {
-    if (e.code === 'Space' && e.target !== nameInput && $('winOverlay').hidden && !btn.disabled) {
+    if (e.target === nameInput || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === 'Space' && $('winOverlay').hidden && !btn.disabled) {
       e.preventDefault();
       roll();
+    } else if (e.code === 'KeyA' && !e.repeat) {
+      autoInput.click();
+      toast(autoInput.checked ? 'Auto-roll on' : 'Auto-roll off', { icon: '🔁' });
+    } else if (e.code === 'KeyM' && !e.repeat) {
+      soundInput.click();
+      toast(soundInput.checked ? 'Sound on' : 'Sound off', { icon: soundInput.checked ? '🔊' : '🔇' });
     }
   }
   document.addEventListener('keydown', onKey);
@@ -2909,6 +2989,7 @@
   renderMe();
   renderOdds();
   setMode();
+  if (coarsePointer) $('keys').hidden = true;
   if (me.rolls === 0) {
     $('hint').hidden = false;
     if (coarsePointer) $('hint').querySelector('.hint-key').hidden = true;
