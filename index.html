@@ -373,14 +373,61 @@
 
   /* Win overlay */
   .overlay {
-    position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    position: fixed; inset: 0; z-index: 10; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
     padding: 24px 16px; text-align: center;
-    background: rgba(10, 6, 3, .86); backdrop-filter: blur(6px);
-    animation: fade .4s ease;
+    background: radial-gradient(ellipse at 50% 45%, rgba(60, 38, 10, .9), rgba(8, 4, 2, .95) 70%);
+    backdrop-filter: blur(6px);
+    animation: fade .45s ease;
   }
+  .overlay > :not(.rays) { position: relative; z-index: 1; }
   @keyframes fade { from { opacity: 0; } }
-  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .rays {
+    position: absolute; left: 50%; top: 45%; width: 170vmax; height: 170vmax; margin: -85vmax 0 0 -85vmax; pointer-events: none;
+    background: repeating-conic-gradient(from 0deg, rgba(242, 201, 76, .17) 0deg 6deg, transparent 6deg 15deg);
+    -webkit-mask: radial-gradient(circle, #000 0%, transparent 52%); mask: radial-gradient(circle, #000 0%, transparent 52%);
+    animation: raysspin 30s linear infinite, raysin 1.1s cubic-bezier(.2, .8, .2, 1);
+  }
+  @keyframes raysspin { to { rotate: 360deg; } }
+  @keyframes raysin { from { scale: .3; opacity: 0; } }
+  .win-head {
+    margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(26px, 6vw, 38px); line-height: 1.1;
+    background: var(--gold); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 18px rgba(242, 201, 76, .35));
+  }
+  .flip { width: min(100%, 460px); perspective: 1400px; }
+  .flip-inner { position: relative; transform-style: preserve-3d; }
+  .flip .golden, .golden-back { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+  .golden-back {
+    --notch: 18px;
+    position: absolute; inset: 0; transform: rotateY(180deg); border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    color: var(--gold-2);
+    background:
+      repeating-radial-gradient(circle at 50% 50%, rgba(242, 201, 76, .12) 0 1px, transparent 1px 6px),
+      linear-gradient(160deg, #4a3010, #22150a 60%, #3a250d);
+    -webkit-mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+            mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+  }
+  .golden-back .seal {
+    width: 88px; height: 88px; border-radius: 50%; display: grid; place-items: center;
+    font: 400 38px/1 var(--display); color: var(--ink); background: var(--gold);
+    box-shadow: 0 0 0 4px rgba(34, 21, 10, .9), 0 0 0 6px rgba(242, 201, 76, .6), 0 0 30px rgba(242, 201, 76, .5);
+  }
+  .golden-back span { font-size: 12px; font-weight: 700; letter-spacing: .4em; text-transform: uppercase; }
+  .win-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .gold-btn {
+    font: 700 15px var(--sans); color: var(--ink); background: var(--gold); border: 0; border-radius: 999px;
+    padding: 11px 22px; cursor: pointer; box-shadow: 0 4px 0 #6b4708, 0 10px 24px rgba(242, 201, 76, .25);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .gold-btn:hover { transform: translateY(-1px); }
+  .gold-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #6b4708, 0 4px 12px rgba(242, 201, 76, .2); }
+  .gold-btn:focus-visible, .ghost-btn:focus-visible { outline: 3px solid var(--gold-1); outline-offset: 3px; }
   .golden {
     --notch: 18px;
     position: relative; width: min(100%, 460px); padding: 26px 44px 24px; color: var(--ink);
@@ -393,7 +440,7 @@
             mask:
       radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
       radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
-    animation: rise .7s cubic-bezier(.2, .9, .3, 1.2), shimmer 4s linear infinite;
+    animation: shimmer 4s linear infinite;
   }
   .golden::before { content: ""; position: absolute; inset: 9px 30px; border: 1.5px dashed rgba(58, 36, 5, .35); border-radius: 8px; pointer-events: none; }
   .golden::after {
@@ -401,14 +448,13 @@
     background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .55) 50%, transparent 65%);
     transform: translateX(-100%); animation: sweep 3s ease-in-out 1s infinite;
   }
-  @keyframes rise { from { transform: translateY(40px) scale(.85) rotate(-3deg); opacity: 0; } }
   @keyframes shimmer { 50% { background-position: 100% 100%; } }
   @keyframes sweep { 60%, 100% { transform: translateX(100%); } }
   .golden-top { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
   .golden h2 { font-family: var(--display); font-weight: 400; font-size: clamp(38px, 11vw, 54px); line-height: 1.05; margin: 12px 0 6px; }
   .golden-name { margin: 0 0 16px; }
   .golden-code {
-    font: 700 clamp(18px, 5.4vw, 24px)/1 var(--mono); letter-spacing: .08em;
+    font: 700 clamp(18px, 5.4vw, 24px)/1 var(--mono); letter-spacing: .08em; white-space: nowrap; font-variant-numeric: tabular-nums;
     background: rgba(58, 36, 5, .1); border: 1px solid rgba(58, 36, 5, .25); border-radius: 8px; padding: 12px 10px;
   }
   .golden-fine { margin: 12px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; opacity: .75; }
@@ -476,6 +522,12 @@
   .widget-side { display: flex; flex-direction: column; gap: 6px; }
   .widget .toggle { padding: 6px 10px; font-size: 13px; }
   .widget .overlay { padding: 10px; gap: 8px; }
+  .widget .win-head, .widget .overlay-note { display: none; }
+  .widget .flip { width: min(100%, 360px); }
+  .widget .golden-back { --notch: 11px; }
+  .widget .golden-back .seal { width: 54px; height: 54px; font-size: 24px; }
+  .widget .gold-btn { padding: 6px 12px; font-size: 12px; }
+  .widget .win-actions { gap: 6px; }
   .widget .golden { --notch: 11px; padding: 12px 26px; }
   .widget .golden::before { inset: 5px 16px; }
   .widget .golden h2 { font-size: 28px; margin: 4px 0 2px; }
@@ -624,16 +676,26 @@
 </main>
 
 <div class="overlay" id="winOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="winTitle">
-  <canvas id="confetti"></canvas>
-  <div class="golden">
-    <div class="golden-top"><span>Admit one</span><span id="winDate"></span></div>
-    <h2 id="winTitle">Golden Ticket</h2>
-    <p class="golden-name">Awarded to <strong id="winName"></strong></p>
-    <div class="golden-code" id="winCode"></div>
-    <p class="golden-fine">Roll #<span id="winRollNo"></span> · 1 in <span data-odds>10,000</span></p>
+  <div class="rays" aria-hidden="true"></div>
+  <p class="win-head">You found it!</p>
+  <div class="flip" id="winFlip">
+    <div class="flip-inner" id="winFlipInner">
+      <div class="golden">
+        <div class="golden-top"><span>Admit one</span><span id="winDate"></span></div>
+        <h2 id="winTitle">Golden Ticket</h2>
+        <p class="golden-name">Awarded to <strong id="winName"></strong></p>
+        <div class="golden-code" id="winCode"></div>
+        <p class="golden-fine">Roll #<span id="winRollNo"></span> · 1 in <span data-odds>10,000</span></p>
+      </div>
+      <div class="golden-back" aria-hidden="true"><div class="seal">GT</div><span>Golden Ticket</span></div>
+    </div>
   </div>
-  <p class="overlay-note"><span id="winRecorded">You won! </span><strong>Screenshot this ticket and keep the code.</strong> Show it to the owner to claim your prize.</p>
-  <button class="ghost-btn" id="closeWin" type="button">Back to rolling</button>
+  <p class="overlay-note"><span id="winRecorded">You won! </span>Keep your code safe: <strong>show it to the owner to claim your prize.</strong></p>
+  <div class="win-actions">
+    <button class="gold-btn" id="copyCode" type="button">Copy code</button>
+    <button class="gold-btn" id="saveTicket" type="button">Save image</button>
+    <button class="ghost-btn" id="closeWin" type="button">Back to rolling</button>
+  </div>
 </div>
 
 <script>
@@ -1114,6 +1176,8 @@
         tone(523.25, { to: 466.16, dur: 0.22, type: 'triangle', gain: 0.06 });
         tone(392, { to: 349.23, dur: 0.4, type: 'triangle', gain: 0.06, at: 0.2 });
       },
+      pop: () => { tone(420, { to: 90, dur: 0.12, type: 'triangle', gain: 0.18 }); tone(1800, { to: 600, dur: 0.06, type: 'square', gain: 0.03 }); },
+      reveal: () => [1567.98, 2093, 2637.02, 3135.96].forEach((f, i) => tone(f, { dur: 0.45, type: 'sine', gain: 0.05, at: i * 0.06 })),
       win: () => [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093]
         .forEach((f, i) => tone(f, { dur: 0.7, type: 'triangle', gain: 0.09, at: i * 0.075 })),
     };
@@ -1429,6 +1493,7 @@
       ticket.classList.add('jackpot');
       sfx.win();
       haptics.win();
+      jackpotBurst();
     } else if (finalHeat >= 2 || nearMiss) {
       sfx.close();
       haptics.close();
@@ -1516,21 +1581,186 @@
   }
 
   // ---- Winning ---------------------------------------------------------
+  let lastTicket = null;
+
+  function jackpotBurst() {
+    const t = $('ticket');
+    dust.setTension(4);
+    later(() => dust.setTension(0), 2400);
+    spotlight(0);
+    if (reducedMotion) return;
+    fx.flash(t);
+    fx.burst(t.querySelector('.slot') || t, { count: 90, power: 1.7 });
+    fx.ring(t.querySelector('.slot') || t, { to: 2.4, life: 0.8, width: 6 });
+    later(() => fx.ring(t.querySelector('.slot') || t, { to: 3.2, life: 1, width: 4 }), 180);
+    later(() => fx.glints(t, { count: 14 }), 250);
+    const shaker = t.closest('.app, .widget-wrap') || t;
+    shaker.animate([
+      { transform: 'translate(0, 0)' }, { transform: 'translate(-9px, 5px)' }, { transform: 'translate(8px, -6px)' },
+      { transform: 'translate(-6px, -3px)' }, { transform: 'translate(5px, 4px)' }, { transform: 'translate(-2px, 1px)' }, { transform: 'translate(0, 0)' },
+    ], { duration: 560, easing: 'ease-out' });
+  }
+
+  // The code settles one character at a time out of a blur of random ones.
+  function scramble(el, text, duration = 1000) {
+    if (reducedMotion) { el.textContent = text; return; }
+    const view = el.ownerDocument.defaultView;
+    const start = view.performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - start) / duration);
+      const settled = Math.floor(p * text.length);
+      el.textContent = [...text].map((c, i) => (i < settled || c === '-' ? c : CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)])).join('');
+      if (p < 1) view.requestAnimationFrame(step);
+      else el.textContent = text;
+    };
+    view.requestAnimationFrame(step);
+  }
+
   function celebrate(ticket) {
+    lastTicket = ticket;
     autoInput.checked = false;
     store.set('gt_auto', false);
     $('winName').textContent = ticket.name;
-    $('winCode').textContent = ticket.code;
+    $('winCode').textContent = ticket.code.replace(/[^-]/g, '•');
     $('winRollNo').textContent = fmt(ticket.rollNumber);
     $('winDate').textContent = shortDate(ticket.at);
-    $('winOverlay').hidden = false;
+    $('copyCode').textContent = 'Copy code';
+    const from = $('ticket').getBoundingClientRect();
+    const overlay = $('winOverlay');
+    overlay.hidden = false;
     document.title = '🎫 YOU WON THE GOLDEN TICKET!';
     if (!pip) $('closeWin').focus();
-    if (!reducedMotion) confetti();
+    if (reducedMotion) { $('winCode').textContent = ticket.code; return; }
+    // Fly the golden ticket out of the ticket on the page, face down, and flip it over.
+    const inner = $('winFlipInner');
+    const to = inner.getBoundingClientRect();
+    const sameWindow = $('ticket').ownerDocument === overlay.ownerDocument;
+    const dx = sameWindow ? from.left + from.width / 2 - (to.left + to.width / 2) : 0;
+    const dy = sameWindow ? from.top + from.height / 2 - (to.top + to.height / 2) : 80;
+    const sc = sameWindow ? Math.max(0.3, Math.min(1.4, from.width / to.width)) : 0.5;
+    inner.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${sc}) rotateY(180deg) rotateZ(-6deg)`, opacity: 0 },
+      { opacity: 1, offset: 0.12 },
+      { transform: 'translate(0, -14px) scale(1.07) rotateY(-14deg) rotateZ(1deg)', offset: 0.72 },
+      { transform: 'none', opacity: 1 },
+    ], { duration: 1300, easing: 'cubic-bezier(.2, .75, .25, 1)' });
+    later(() => { sfx.reveal(); scramble($('winCode'), ticket.code); }, 900);
+    later(() => {
+      sfx.pop();
+      fx.cannon(overlay, 'left');
+      fx.cannon(overlay, 'right');
+      later(() => sfx.pop(), 120);
+    }, 1000);
+    later(() => fx.rain(overlay, 70), 1600);
   }
 
+  async function copyCode() {
+    if (!lastTicket) return;
+    const button = $('copyCode');
+    const win = button.ownerDocument.defaultView;
+    try {
+      await win.navigator.clipboard.writeText(lastTicket.code);
+    } catch {
+      const area = button.ownerDocument.createElement('textarea');
+      area.value = lastTicket.code;
+      area.style.cssText = 'position:fixed;opacity:0';
+      button.ownerDocument.body.append(area);
+      area.select();
+      try { button.ownerDocument.execCommand('copy'); } catch {}
+      area.remove();
+    }
+    button.textContent = 'Copied ✓';
+    later(() => { button.textContent = 'Copy code'; }, 2000);
+  }
+
+  // A shareable picture of the golden ticket, for claiming the prize.
+  async function ticketImage(t) {
+    const W = 1200, H = 630;
+    try { await document.fonts.load('100px "Abril Fatface"'); } catch {}
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const g = out.getContext('2d');
+    g.fillStyle = '#120a07';
+    g.fillRect(0, 0, W, H);
+    const halo = g.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 720);
+    halo.addColorStop(0, 'rgba(242, 201, 76, .32)'); halo.addColorStop(1, 'rgba(242, 201, 76, 0)');
+    g.fillStyle = halo;
+    g.fillRect(0, 0, W, H);
+    // The ticket on its own layer so the notches can be punched out.
+    const x = 100, y = 70, w = W - 200, h = H - 140;
+    const tc = document.createElement('canvas');
+    tc.width = W; tc.height = H;
+    const c = tc.getContext('2d');
+    const gold = c.createLinearGradient(x, y, x + w, y + h);
+    [['0', '#fff3c4'], ['.3', '#f2c94c'], ['.62', '#c8901a'], ['.82', '#f2c94c'], ['1', '#fff3c4']].forEach(([o, col]) => gold.addColorStop(+o, col));
+    c.fillStyle = gold;
+    c.beginPath(); c.roundRect(x, y, w, h, 30); c.fill();
+    c.save();
+    c.beginPath(); c.roundRect(x, y, w, h, 30); c.clip();
+    c.strokeStyle = 'rgba(58, 36, 5, .07)'; c.lineWidth = 1.3;
+    for (let r = 10; r < 760; r += 9) { c.beginPath(); c.arc(x + w / 2, y + h / 2, r, 0, Math.PI * 2); c.stroke(); }
+    const sheen = c.createLinearGradient(x, y, x + w, y + h);
+    sheen.addColorStop(0.35, 'rgba(255, 255, 255, 0)'); sheen.addColorStop(0.5, 'rgba(255, 255, 255, .35)'); sheen.addColorStop(0.65, 'rgba(255, 255, 255, 0)');
+    c.fillStyle = sheen; c.fillRect(x, y, w, h);
+    c.restore();
+    c.globalCompositeOperation = 'destination-out';
+    for (const nx of [x, x + w]) { c.beginPath(); c.arc(nx, y + h / 2, 34, 0, Math.PI * 2); c.fill(); }
+    c.globalCompositeOperation = 'source-over';
+    c.setLineDash([10, 8]); c.lineWidth = 2.5; c.strokeStyle = 'rgba(58, 36, 5, .4)';
+    c.beginPath(); c.roundRect(x + 52, y + 20, w - 104, h - 40, 14); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = '#3a2405';
+    c.textAlign = 'center';
+    c.font = '700 22px Inter, system-ui, sans-serif'; c.letterSpacing = '6px';
+    c.fillText(`ADMIT ONE  ·  ${shortDate(t.at).toUpperCase()}`, W / 2, y + 78);
+    c.letterSpacing = '0px';
+    c.font = '120px "Abril Fatface", Georgia, serif';
+    c.fillText('Golden Ticket', W / 2, y + 206);
+    c.font = '500 32px Inter, system-ui, sans-serif';
+    c.fillText(`Awarded to ${t.name}`, W / 2, y + 262);
+    c.fillStyle = 'rgba(58, 36, 5, .12)';
+    c.beginPath(); c.roundRect(W / 2 - 300, y + 292, 600, 84, 14); c.fill();
+    c.strokeStyle = 'rgba(58, 36, 5, .3)'; c.lineWidth = 2; c.stroke();
+    c.fillStyle = '#3a2405';
+    c.font = '700 50px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+    c.fillText(t.code, W / 2, y + 351);
+    c.font = '600 20px Inter, system-ui, sans-serif';
+    c.fillText(`Roll #${fmt(t.rollNumber)}  ·  1 in ${fmt(odds)}  ·  one golden ticket a day`, W / 2, y + 428);
+    g.drawImage(tc, 0, 0);
+    return out;
+  }
+
+  async function saveTicket() {
+    if (!lastTicket) return;
+    const doc = $('saveTicket').ownerDocument;
+    const canvas = await ticketImage(lastTicket);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = doc.createElement('a');
+      a.href = url;
+      a.download = `golden-ticket-${lastTicket.code}.png`;
+      doc.body.append(a);
+      a.click();
+      a.remove();
+      later(() => URL.revokeObjectURL(url), 5000);
+    }, 'image/png');
+  }
+
+  $('copyCode').addEventListener('click', copyCode);
+  $('saveTicket').addEventListener('click', saveTicket);
+
   $('closeWin').addEventListener('click', () => {
-    $('winOverlay').hidden = true;
+    const overlay = $('winOverlay');
+    if (!reducedMotion) {
+      const ghost = overlay.cloneNode(true);
+      ghost.removeAttribute('id');
+      ghost.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+      ghost.style.pointerEvents = 'none';
+      overlay.after(ghost);
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: 'ease-in', fill: 'forwards' }).onfinish = () => ghost.remove();
+    }
+    overlay.hidden = true;
     document.title = 'Golden Ticket';
     if (!pip) btn.focus();
     if (flashPending) {
@@ -1540,42 +1770,6 @@
     }
   });
 
-  function confetti() {
-    const canvas = $('confetti');
-    const win = canvas.ownerDocument.defaultView;
-    const ctx = canvas.getContext('2d');
-    const dpr = win.devicePixelRatio || 1;
-    canvas.width = win.innerWidth * dpr;
-    canvas.height = win.innerHeight * dpr;
-    const colors = ['#fff3c4', '#f2c94c', '#c8901a', '#ffe08a', '#ffffff'];
-    const pieces = Array.from({ length: 180 }, () => ({
-      x: Math.random() * canvas.width,
-      y: -Math.random() * canvas.height * 0.7,
-      w: (6 + Math.random() * 6) * dpr,
-      h: (9 + Math.random() * 10) * dpr,
-      vx: (Math.random() - 0.5) * 2 * dpr,
-      vy: (2 + Math.random() * 3) * dpr,
-      rot: Math.random() * Math.PI,
-      vr: (Math.random() - 0.5) * 0.2,
-      color: colors[Math.floor(Math.random() * colors.length)],
-    }));
-    const end = performance.now() + 7000;
-    (function frame(t) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of pieces) {
-        p.x += p.vx; p.y += p.vy; p.rot += p.vr;
-        if (p.y > canvas.height + 20 && t < end - 2000) { p.y = -20; p.x = Math.random() * canvas.width; }
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-        ctx.restore();
-      }
-      if (t < end && !$('winOverlay').hidden) win.requestAnimationFrame(frame);
-      else ctx.clearRect(0, 0, canvas.width, canvas.height);
-    })(performance.now());
-  }
 
   // ---- Particles ----------------------------------------------------------
   // Sparks, glints, shockwave rings and confetti on a full-window canvas in whichever window the
@@ -1722,7 +1916,83 @@
       }
       add(el, parts);
     }
-    return { sparks, burst, ring, glints, add, pick, GOLDS, layerFor };
+    function flash(el) {
+      add(el, [{
+        age: 0,
+        step(dt) { this.age += dt; if (this.age > 0.7) return false; },
+        draw(ctx) {
+          const L = layerFor(el.ownerDocument);
+          const k = this.age / 0.7;
+          const g = ctx.createRadialGradient(L.w / 2, L.h / 2, 0, L.w / 2, L.h / 2, Math.max(L.w, L.h) * 0.7);
+          g.addColorStop(0, 'rgba(255, 250, 225, 1)'); g.addColorStop(0.5, 'rgba(255, 220, 120, .6)'); g.addColorStop(1, 'rgba(242, 201, 76, 0)');
+          ctx.globalAlpha = (k < 0.12 ? k / 0.12 : 1 - (k - 0.12) / 0.88) * 0.85;
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, L.w, L.h);
+        },
+      }]);
+    }
+    function piece(x, y, vx, vy, delay = 0) {
+      const coin = Math.random() < 0.18;
+      return {
+        x, y, vx, vy, age: -delay, life: 7 + Math.random() * 2, coin,
+        w: coin ? 0 : 6 + Math.random() * 7, h: coin ? 0 : 10 + Math.random() * 8, r: 6 + Math.random() * 4,
+        color: pick(GOLDS), rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 9,
+        flip: Math.random() * Math.PI * 2, vf: 5 + Math.random() * 9, sway: Math.random() * Math.PI * 2,
+        step(dt, L) {
+          this.age += dt;
+          if (this.age < 0) return;
+          if (this.age > this.life || this.y > L.h + 60) return false;
+          this.vy += 560 * dt;
+          this.vx *= 1 - 1.3 * dt;
+          this.vy *= 1 - 1.15 * dt;
+          this.vx += Math.sin(this.age * 2.6 + this.sway) * 40 * dt;
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.rot += this.vr * dt;
+          this.flip += this.vf * dt;
+        },
+        draw(ctx) {
+          if (this.age < 0) return;
+          ctx.globalAlpha = Math.min(1, (this.life - this.age) / 0.8);
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.rot);
+          const f = Math.cos(this.flip);
+          if (this.coin) {
+            const g = ctx.createLinearGradient(-this.r, 0, this.r, 0);
+            g.addColorStop(0, '#8a5d0e'); g.addColorStop(0.45, f > 0 ? '#ffe08a' : '#e0a93a'); g.addColorStop(1, '#b37a0c');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, Math.max(0.8, Math.abs(f) * this.r), this.r, 0, 0, Math.PI * 2);
+            ctx.fill();
+            return;
+          }
+          ctx.scale(1, f);
+          ctx.fillStyle = this.color;
+          ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+          if (f < 0) { ctx.fillStyle = 'rgba(60, 35, 5, .3)'; ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h); }
+        },
+      };
+    }
+    function cannon(el, side) {
+      const L = layerFor(el.ownerDocument);
+      fit(L);
+      const left = side === 'left';
+      const parts = [];
+      for (let i = 0; i < 90; i++) {
+        const angle = (left ? -Math.PI / 3.1 : -Math.PI + Math.PI / 3.1) + (Math.random() - 0.5) * 0.7;
+        const speed = 900 + Math.random() * 900;
+        parts.push(piece(left ? -10 : L.w + 10, L.h + 10, Math.cos(angle) * speed, Math.sin(angle) * speed, Math.random() * 0.15));
+      }
+      add(el, parts);
+    }
+    function rain(el, count = 60) {
+      const L = layerFor(el.ownerDocument);
+      fit(L);
+      const parts = [];
+      for (let i = 0; i < count; i++) parts.push(piece(Math.random() * L.w, -20, (Math.random() - 0.5) * 80, 40 + Math.random() * 80, Math.random() * 3.5));
+      add(el, parts);
+    }
+    return { sparks, burst, ring, glints, flash, cannon, rain, add, pick, GOLDS, layerFor };
   })();
 
   // ---- Spotlight -----------------------------------------------------------------
@@ -1943,13 +2213,14 @@
       return;
     }
     const doc = w.document;
+    // Copy the page's styles. The <style> text is copied as written: re-serialising rules mangles
+    // some (a var() shorthand followed by a longhand). The web fonts stylesheet is linked instead.
     for (const sheet of document.styleSheets) {
-      try {
+      if (sheet.ownerNode?.tagName === 'STYLE') {
         const style = doc.createElement('style');
-        style.textContent = [...sheet.cssRules].map((r) => r.cssText).join('\n');
+        style.textContent = sheet.ownerNode.textContent;
         doc.head.append(style);
-      } catch {
-        if (!sheet.href) continue; // a cross-origin stylesheet (the web fonts): link it instead
+      } else if (sheet.href) {
         const link = doc.createElement('link');
         link.rel = 'stylesheet';
         link.href = sheet.href;
