@@ -422,6 +422,34 @@
   .popped { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
   .popped p { margin: 0; color: var(--muted); }
 
+  /* Effects: particles, spotlight, toasts, first-visit hint */
+  .fx-layer { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 30; }
+  .spotlight {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity .6s ease;
+    background: radial-gradient(ellipse var(--rw, 420px) var(--rh, 260px) at var(--sx, 50%) var(--sy, 40%), transparent 52%, rgba(5, 2, 1, .82) 100%);
+  }
+  .toasts {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 40; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 8px; width: max-content; max-width: calc(100vw - 32px);
+  }
+  .toast {
+    display: flex; align-items: center; gap: 10px; padding: 10px 18px 10px 14px; border-radius: 999px;
+    background: rgba(30, 19, 11, .97); border: 1px solid var(--line-strong); color: var(--text);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .55), 0 0 26px rgba(242, 201, 76, .14);
+    font-size: 14px; font-weight: 600;
+  }
+  .toast .t-icon { font-size: 18px; line-height: 1; }
+  .toast.gold { background: var(--gold); color: var(--ink); border-color: rgba(255, 243, 196, .8); }
+  .hint {
+    margin: -8px 0 0; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px;
+    animation: hintbob 1.6s ease-in-out infinite;
+  }
+  .hint kbd {
+    font: 600 12px var(--sans); padding: 2px 7px; border-radius: 6px; color: var(--text);
+    background: rgba(242, 201, 76, .1); border: 1px solid var(--line-strong); border-bottom-width: 2px;
+  }
+  @keyframes hintbob { 50% { transform: translateY(-4px); } }
+
   /* Mini widget: the ticket and button in an always-on-top Picture-in-Picture window */
   body.widget {
     min-height: 100vh; padding: 10px; display: flex; flex-direction: column; justify-content: center;
@@ -475,6 +503,8 @@
 </head>
 <body>
 <canvas id="dust" aria-hidden="true"></canvas>
+<div class="spotlight" id="spotlight" aria-hidden="true"></div>
+<div class="toasts" id="toasts"></div>
 <main class="app">
   <div class="stage">
     <header class="hero">
@@ -526,6 +556,8 @@
         </span>
       </button>
     </div>
+
+    <p class="hint" id="hint" hidden>↑ Tap the coin to roll<span class="hint-key"> · <kbd>Space</kbd> works too</span></p>
 
     <div class="dock">
       <label class="field">
@@ -770,9 +802,10 @@
     return li;
   }
 
-  function renderMe() {
-    $('myRolls').textContent = fmt(me.rolls);
-    $('myBest').textContent = me.best ? fmt(me.best) : '—';
+  function renderMe({ added = false } = {}) {
+    const before = added ? [...$('recent').children].map((c) => c.getBoundingClientRect()) : [];
+    countTo($('myRolls'), me.rolls);
+    countTo($('myBest'), me.best, (v) => (v ? fmt(v) : '—'));
     $('bestMeter').style.width = `${Math.min(100, (me.best / odds) * 100).toFixed(1)}%`;
     $('ticketNo').textContent = `No. ${String(me.rolls).padStart(4, '0')}`;
     $('recent').replaceChildren(...me.recent.map((r) => {
@@ -783,16 +816,29 @@
       return chip;
     }));
     $('recentEmpty').hidden = me.recent.length > 0;
+    if (added && !reducedMotion && !document.hidden) {
+      [...$('recent').children].forEach((c, i) => {
+        if (i === 0) {
+          c.animate([{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.14)', opacity: 1, offset: 0.6 }, { transform: 'none' }], { duration: 480, easing: 'ease-out' });
+          return;
+        }
+        const old = before[i - 1];
+        if (!old) return;
+        const now = c.getBoundingClientRect();
+        const dx = old.left - now.left, dy = old.top - now.top;
+        if (dx || dy) c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.3, 1.25, .5, 1)' });
+      });
+    }
     $('myTickets').replaceChildren(...myTickets.map((t) => listItem(t.code, shortDate(t.at), 'code')));
     $('ticketsPanel').hidden = myTickets.length === 0;
-    if (!serverUrl) $('stat3').textContent = fmt(myTickets.length);
+    if (!serverUrl) countTo($('stat3'), myTickets.length);
   }
 
   function applyServer(s) {
     if (s.odds) odds = s.odds;
     if (!rolling && reels.length !== String(odds).length) showStatic(me.recent[0] || 0);
     if (s.cooldownMs) cooldownMs = s.cooldownMs;
-    $('stat3').textContent = fmt(s.totalRolls);
+    countTo($('stat3'), s.totalRolls);
     $('winnerCount').textContent = s.winnerCount ? `${fmt(s.winnerCount)} found` : '';
     renderBoard(s.leaderboard || []);
     renderOdds();
@@ -837,8 +883,12 @@
       setVerdict(t.winner.you
         ? `You found today's golden ticket at ${at}!`
         : `Found by ${t.winner.name} at ${at}${t.rolls ? ` after ${fmt(t.rolls)} ${t.rolls === 1 ? 'roll' : 'rolls'}` : ''}.`);
-      if (!wasClosed && !firstLoad) slamStamp();
+      if (!wasClosed && !firstLoad) {
+        slamStamp();
+        if (!t.winner.you) toast(`${t.winner.name} just found today's golden ticket`, { icon: '🎫' });
+      }
     } else if (wasClosed) {
+      toast('A new golden ticket just dropped!', { icon: '✨', tone: 'gold' });
       ticket.classList.remove('jackpot');
       showStatic(0);
       setVerdict("A new golden ticket is out there. Go!");
@@ -957,8 +1007,12 @@
 
   function setVerdict(text, isError = false) {
     const v = $('verdict');
+    const changed = v.textContent !== text;
     v.textContent = text;
     v.classList.toggle('error', isError);
+    if (changed && !reducedMotion && !document.hidden) {
+      v.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
+    }
   }
 
   // ---- Countdown loop --------------------------------------------------
@@ -1309,6 +1363,11 @@
     }
     ticket.dataset.heat = String(heat);
     dust.setTension(heat);
+    spotlight(heat);
+    if (!reducedMotion) {
+      r.reel.animate([{ transform: 'scale(1.16)' }, { transform: 'scale(.97)', offset: 0.55 }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+      fx.sparks(r.reel, { count: heat ? 12 + heat * 4 : 6, power: heat ? 1 + heat * 0.2 : 0.75 });
+    }
     if (heat && i < reels.length - 1) {
       sfx.tease(heat);
       haptics.tease(heat);
@@ -1323,6 +1382,7 @@
     const ticket = $('ticket');
     ticket.classList.remove('jackpot');
     ticket.dataset.heat = '0';
+    spotlight(0);
     if (reducedMotion) {
       return { land: async (value) => { showStatic(value); sfx.thunk(0); } };
     }
@@ -1382,7 +1442,7 @@
         { transform: 'scale(1)' },
       ], { duration: win ? 650 : 380, easing: 'ease-out' });
     }
-    if (!win) later(() => { if (!rolling) { ticket.dataset.heat = '0'; dust.setTension(0); } }, 900);
+    if (!win) later(() => { if (!rolling) { ticket.dataset.heat = '0'; dust.setTension(0); spotlight(0); } }, 900);
   }
 
   async function roll() {
@@ -1396,7 +1456,9 @@
     if (!reducedMotion) {
       btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(.9)' }, { transform: 'scale(1.04)' }, { transform: 'scale(1)' }],
         { duration: 380, easing: 'ease-out' });
+      fx.ring(btn);
     }
+    $('hint').hidden = true;
     const spin = startSpin();
     const minSpin = sleep(reducedMotion ? 0 : 550);
     const result = await requestRoll(name);
@@ -1426,15 +1488,20 @@
       const finalHeat = await spin.land(data.roll);
       finale(data.roll, data.win, finalHeat);
       if (serverUrl && !data.win) applyServer(data);
+      const previousBest = me.best;
       me.rolls += 1;
       me.best = Math.max(me.best, data.roll);
+      if (!data.win && previousBest && data.roll > previousBest) {
+        toast(`New personal best: ${fmt(data.roll)}`, { icon: '⭐' });
+        later(() => fx.glints($('myBest')), 150);
+      }
       me.recent = [data.roll, ...me.recent].slice(0, 12);
       store.set('gt_me', me);
       if (data.win) {
         myTickets.unshift(data.ticket);
         store.set('gt_tickets', myTickets);
       }
-      renderMe();
+      renderMe({ added: true });
       setVerdict(verdictFor(data.roll));
       $('rollSr').textContent = `You rolled ${fmt(data.roll)}.`;
       if (data.win) {
@@ -1508,6 +1575,211 @@
       if (t < end && !$('winOverlay').hidden) win.requestAnimationFrame(frame);
       else ctx.clearRect(0, 0, canvas.width, canvas.height);
     })(performance.now());
+  }
+
+  // ---- Particles ----------------------------------------------------------
+  // Sparks, glints, shockwave rings and confetti on a full-window canvas in whichever window the
+  // element is in (the page or the mini widget).
+  const fx = (() => {
+    const layers = new Map();
+    const GOLDS = ['#fff3c4', '#ffe08a', '#f2c94c', '#e0a93a', '#c8901a', '#ffffff'];
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    function layerFor(doc) {
+      let L = layers.get(doc);
+      if (L && L.canvas.isConnected) return L;
+      const canvas = doc.createElement('canvas');
+      canvas.className = 'fx-layer';
+      canvas.setAttribute('aria-hidden', 'true');
+      doc.body.append(canvas);
+      L = { canvas, ctx: canvas.getContext('2d'), parts: [], running: false, win: doc.defaultView, w: 0, h: 0, dpr: 1 };
+      layers.set(doc, L);
+      return L;
+    }
+    function fit(L) {
+      const dpr = Math.min(2, L.win.devicePixelRatio || 1);
+      const w = L.win.innerWidth, h = L.win.innerHeight;
+      if (w !== L.w || h !== L.h || dpr !== L.dpr) {
+        L.w = w; L.h = h; L.dpr = dpr;
+        L.canvas.width = Math.round(w * dpr);
+        L.canvas.height = Math.round(h * dpr);
+      }
+    }
+    function run(L) {
+      if (L.running) return;
+      L.running = true;
+      let last = 0;
+      const step = (t) => {
+        const dt = Math.min(0.033, (t - (last || t)) / 1000);
+        last = t;
+        fit(L);
+        const ctx = L.ctx;
+        ctx.setTransform(L.dpr, 0, 0, L.dpr, 0, 0);
+        ctx.clearRect(0, 0, L.w, L.h);
+        L.parts = L.parts.filter((p) => p.step(dt, L) !== false);
+        for (const p of L.parts) { ctx.save(); p.draw(ctx); ctx.restore(); }
+        if (L.parts.length) L.win.requestAnimationFrame(step);
+        else { L.running = false; ctx.clearRect(0, 0, L.w, L.h); }
+      };
+      L.win.requestAnimationFrame(step);
+    }
+    function add(el, parts) {
+      if (reducedMotion || !el?.isConnected) return;
+      const doc = el.ownerDocument;
+      if (doc.hidden) return;
+      const L = layerFor(doc);
+      L.parts.push(...parts);
+      if (L.parts.length > 900) L.parts.splice(0, L.parts.length - 900);
+      run(L);
+    }
+    const centerOf = (el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, r };
+    };
+
+    function spark(x, y, angle, speed, life, color, width = 2) {
+      return {
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life, age: 0, color, width,
+        step(dt) {
+          this.age += dt;
+          if (this.age >= this.life) return false;
+          this.vy += 1100 * dt;
+          this.vx *= 1 - 1.6 * dt;
+          this.vy *= 1 - 1.2 * dt;
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+        },
+        draw(ctx) {
+          const k = 1 - this.age / this.life;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = k;
+          ctx.strokeStyle = this.color;
+          ctx.lineWidth = this.width * (0.5 + k * 0.5);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y);
+          ctx.lineTo(this.x - this.vx * 0.028, this.y - this.vy * 0.028);
+          ctx.stroke();
+        },
+      };
+    }
+    function sparks(el, { count = 10, power = 1, spread = Math.PI * 0.9, up = true } = {}) {
+      const { x, y, r } = centerOf(el);
+      const parts = [];
+      for (let i = 0; i < count; i++) {
+        const angle = (up ? -Math.PI / 2 : Math.random() * Math.PI * 2) + (Math.random() - 0.5) * spread;
+        const sx = x + (Math.random() - 0.5) * r.width * 0.6;
+        const sy = up ? r.top + r.height * 0.15 : y;
+        parts.push(spark(sx, sy, angle, (260 + Math.random() * 380) * power, 0.35 + Math.random() * 0.35, pick(GOLDS), 1.5 + Math.random() * 1.6));
+      }
+      add(el, parts);
+    }
+    function burst(el, { count = 60, power = 1.4 } = {}) {
+      sparks(el, { count, power, spread: Math.PI * 2, up: false });
+    }
+    function ring(el, { color = 'rgba(255, 228, 140, .9)', from = 0.45, to = 1.6, life = 0.55, width = 4 } = {}) {
+      const { x, y, r } = centerOf(el);
+      const base = Math.max(r.width, r.height) / 2;
+      add(el, [{
+        age: 0,
+        step(dt) { this.age += dt; if (this.age >= life) return false; },
+        draw(ctx) {
+          const k = this.age / life, e = 1 - (1 - k) ** 3;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = (1 - k) * 0.9;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width * (1 - k) + 0.5;
+          ctx.beginPath();
+          ctx.arc(x, y, base * (from + (to - from) * e), 0, Math.PI * 2);
+          ctx.stroke();
+        },
+      }]);
+    }
+    function glints(el, { count = 7 } = {}) {
+      const { r } = centerOf(el);
+      const parts = [];
+      for (let i = 0; i < count; i++) {
+        const x = r.left + Math.random() * r.width, y = r.top + Math.random() * r.height;
+        const size = 5 + Math.random() * 7, delay = Math.random() * 0.35, life = 0.6;
+        parts.push({
+          age: -delay,
+          step(dt) { this.age += dt; if (this.age >= life) return false; },
+          draw(ctx) {
+            if (this.age < 0) return;
+            const k = this.age / life, s = size * Math.sin(Math.PI * k);
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = '#fff3c4';
+            ctx.globalAlpha = 0.95;
+            ctx.beginPath();
+            ctx.moveTo(x, y - s); ctx.quadraticCurveTo(x, y, x + s * 0.35, y);
+            ctx.quadraticCurveTo(x, y, x, y + s); ctx.quadraticCurveTo(x, y, x - s * 0.35, y);
+            ctx.quadraticCurveTo(x, y, x, y - s);
+            ctx.moveTo(x - s, y); ctx.quadraticCurveTo(x, y, x, y + s * 0.35);
+            ctx.quadraticCurveTo(x, y, x + s, y); ctx.quadraticCurveTo(x, y, x, y - s * 0.35);
+            ctx.quadraticCurveTo(x, y, x - s, y);
+            ctx.fill();
+          },
+        });
+      }
+      add(el, parts);
+    }
+    return { sparks, burst, ring, glints, add, pick, GOLDS, layerFor };
+  })();
+
+  // ---- Spotlight -----------------------------------------------------------------
+  // During a near miss everything but the ticket dims, more with each hot reel.
+  function spotlight(level) {
+    const el = $('spotlight');
+    const t = $('ticket');
+    if (!el) return;
+    if (reducedMotion || t.ownerDocument !== document) { el.style.opacity = '0'; return; }
+    if (level > 0) {
+      const r = t.getBoundingClientRect();
+      el.style.setProperty('--sx', `${(r.left + r.width / 2).toFixed(0)}px`);
+      el.style.setProperty('--sy', `${(r.top + r.height / 2).toFixed(0)}px`);
+      el.style.setProperty('--rw', `${(r.width * 0.9).toFixed(0)}px`);
+      el.style.setProperty('--rh', `${(r.height * 1.25).toFixed(0)}px`);
+    }
+    el.style.opacity = String([0, 0.3, 0.55, 0.8, 0.88][Math.max(0, Math.min(4, level))]);
+  }
+
+  // ---- Toasts ------------------------------------------------------------------
+  function toast(text, { icon = '✨', tone = '' } = {}) {
+    const host = $('toasts');
+    if (!host) return;
+    const el = document.createElement('div');
+    el.className = `toast ${tone}`.trim();
+    el.setAttribute('role', 'status');
+    const i = document.createElement('span');
+    i.className = 't-icon';
+    i.textContent = icon;
+    const t = document.createElement('span');
+    t.textContent = text;
+    el.append(i, t);
+    host.prepend(el);
+    while (host.children.length > 3) host.lastChild.remove();
+    if (!reducedMotion) el.animate([{ transform: 'translateY(-18px) scale(.9)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.3, 1.5, .5, 1)' });
+    later(() => {
+      if (reducedMotion || document.hidden) { el.remove(); return; }
+      const out = el.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-10px)' }], { duration: 320, fill: 'forwards' });
+      out.onfinish = () => el.remove();
+    }, 3000);
+  }
+
+  // ---- Counting numbers -----------------------------------------------------------
+  const shownValues = new WeakMap();
+  function countTo(el, value, format = fmt) {
+    const from = shownValues.has(el) ? shownValues.get(el) : value;
+    shownValues.set(el, value);
+    if (reducedMotion || document.hidden || from === value) { el.textContent = format(value); return; }
+    const start = performance.now();
+    const duration = Math.min(900, 350 + Math.abs(value - from) * 0.4);
+    const step = (now) => {
+      if (shownValues.get(el) !== value) return;
+      const p = Math.min(1, (now - start) / duration);
+      el.textContent = format(Math.round(from + (value - from) * (1 - (1 - p) ** 3)));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   // ---- Today bar ---------------------------------------------------------
@@ -2069,6 +2341,10 @@
   renderMe();
   renderOdds();
   setMode();
+  if (me.rolls === 0) {
+    $('hint').hidden = false;
+    if (coarsePointer) $('hint').querySelector('.hint-key').hidden = true;
+  }
   connect().then(async (online) => {
     setMode();
     if (online) {
