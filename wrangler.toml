@@ -7,6 +7,9 @@ compatibility_date = "2026-10-01"
 [vars]
 # Only these sites may use the table. Comma-separated, no trailing slash.
 ALLOWED_ORIGINS = "https://busyworkcitizen.github.io"
+# There's one golden ticket per day. It resets at midnight in this time zone: an IANA name
+# such as "America/New_York", "America/Los_Angeles", "Europe/London" or "Australia/Sydney".
+TIMEZONE = "UTC"
 
 [[durable_objects.bindings]]
 name = "TABLE"

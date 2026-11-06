@@ -26,6 +26,7 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; }
   body {
     min-height: 100vh;
@@ -122,6 +123,20 @@
   .ticket.jackpot .sep { color: var(--gold-1); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .roll-meta { text-align: center; color: var(--muted); font-size: 14px; margin: 0; }
+  .roll-meta.next { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* Today's ticket is taken: stamp the ticket and count down to midnight */
+  .ticket > .stamp {
+    position: absolute; left: 50%; top: 46%; z-index: 3; pointer-events: none;
+    transform: translate(-50%, -50%) rotate(-11deg);
+    font: 800 clamp(20px, 6vw, 32px)/1 Inter, system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase;
+    color: #ff8f6b; border: 3px solid currentColor; border-radius: 10px; padding: 8px 12px 8px 17px;
+    background: rgba(18, 10, 7, .6);
+  }
+  .ticket.mine > .stamp { color: var(--gold-2); }
+  .ticket.closed:not(.mine) .reel { opacity: .28; }
+  .ticket.closed .verdict { color: var(--text); }
+  .roller.closed .roll-btn { font-size: 17px; letter-spacing: .02em; }
   .verdict {
     text-align: center; margin: 10px 0 0; min-height: 1.5em; font-weight: 600; color: var(--gold-2);
   }
@@ -269,6 +284,40 @@
     background: transparent; border: 1px solid rgba(242, 201, 76, .4); border-radius: 999px; padding: 10px 22px; cursor: pointer;
   }
   .ghost-btn:hover { background: rgba(242, 201, 76, .1); }
+  .pop-btn { color: var(--text); font: 500 14px Inter, system-ui, sans-serif; }
+  .pop-btn:hover { border-color: rgba(242, 201, 76, .45); }
+  .popped { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .popped p { margin: 0; color: var(--muted); }
+
+  /* Mini widget: the ticket and button in an always-on-top Picture-in-Picture window */
+  body.widget {
+    min-height: 100vh; padding: 10px; display: flex; flex-direction: column; justify-content: center;
+    overflow: hidden; -webkit-user-select: none; user-select: none;
+  }
+  .widget-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .widget .ticket { --notch: 11px; padding: 9px 24px 10px; }
+  .widget .ticket::before { inset: 5px 16px; }
+  .widget .ticket-top { font-size: 9px; }
+  .widget .roll-number { font-size: clamp(30px, 14vw, 72px); margin-top: 2px; }
+  .widget .roll-meta { font-size: 11px; }
+  .widget .verdict { font-size: 12px; margin-top: 3px; }
+  .widget .ticket > .stamp { font-size: clamp(14px, 5vw, 26px); border-width: 2px; padding: 5px 8px 5px 12px; }
+  .widget-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .widget .roller { width: 92px; height: 92px; flex: none; }
+  .widget .roll-btn { inset: 9px; font-size: 16px; }
+  .widget .roll-btn small { font-size: 9px; }
+  .widget .roller.closed .roll-btn { font-size: 13px; }
+  .widget-side { display: flex; flex-direction: column; gap: 6px; }
+  .widget .toggle { padding: 6px 10px; font-size: 13px; }
+  .widget .overlay { padding: 10px; gap: 8px; }
+  .widget .golden { --notch: 11px; padding: 12px 26px; }
+  .widget .golden::before { inset: 5px 16px; }
+  .widget .golden h2 { font-size: 28px; margin: 4px 0 2px; }
+  .widget .golden-name { margin: 0 0 8px; font-size: 13px; }
+  .widget .golden-code { font-size: 15px; padding: 7px; }
+  .widget .golden-fine { margin-top: 6px; font-size: 10px; }
+  .widget .overlay-note { font-size: 12px; }
+  .widget .ghost-btn { padding: 6px 14px; font-size: 13px; }
 
   @media (max-width: 420px) {
     main { padding-top: 32px; gap: 24px; }
@@ -286,15 +335,22 @@
   <header>
     <div class="eyebrow">★ 1 in <span data-odds>10,000</span> ★</div>
     <h1>Golden Ticket</h1>
-    <p class="sub">Everyone gets <strong>one roll every <span data-cooldown>5</span> seconds</strong>. Roll a perfect <strong data-odds>10,000</strong> and the golden ticket is yours.</p>
+    <p class="sub">Everyone gets <strong>one roll every <span data-cooldown>5</span> seconds</strong>, and there's only <strong>one golden ticket a day</strong>. Roll a perfect <strong data-odds>10,000</strong> before anyone else does.</p>
   </header>
+
+  <section class="panel popped" id="popped" hidden>
+    <p>Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.</p>
+    <button class="ghost-btn" id="popIn" type="button">Bring it back</button>
+  </section>
 
   <section class="ticket" id="ticket" aria-label="Your roll">
     <div class="ticket-top"><span>Admit one</span><span id="ticketNo">No. 0000</span></div>
     <div class="roll-number" id="rollNumber" aria-hidden="true"></div>
     <span class="sr-only" id="rollSr" aria-live="polite"></span>
-    <p class="roll-meta">out of <span data-odds>10,000</span></p>
+    <p class="roll-meta" id="oddsMeta">out of <span data-odds>10,000</span></p>
+    <p class="roll-meta next" id="nextTicket" hidden></p>
     <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
+    <div class="stamp" id="stamp" hidden>Claimed</div>
   </section>
 
   <div class="roller" id="roller">
@@ -313,16 +369,22 @@
       <span>Your name</span>
       <input id="name" maxlength="40" placeholder="So we know who won" autocomplete="nickname">
     </label>
-    <label class="toggle">
+    <label class="toggle" id="autoToggle">
       <input type="checkbox" id="auto">
       <span class="switch" aria-hidden="true"></span>
       <span>Auto-roll</span>
     </label>
-    <label class="toggle">
+    <label class="toggle" id="soundToggle">
       <input type="checkbox" id="sound">
       <span class="switch" aria-hidden="true"></span>
       <span>Sound</span>
     </label>
+    <label class="toggle" id="hapticsToggle" hidden>
+      <input type="checkbox" id="haptics">
+      <span class="switch" aria-hidden="true"></span>
+      <span>Haptics</span>
+    </label>
+    <button class="toggle pop-btn" id="popOut" type="button" hidden title="Open a small always-on-top window you can keep over your games">⧉ Mini widget</button>
   </div>
 
   <section class="stats" aria-label="Stats">
@@ -366,8 +428,32 @@
 
 <script>
 (() => {
-  const $ = (id) => document.getElementById(id);
+  let pip = null; // the mini widget window, while it's open
+  const $ = (id) => document.getElementById(id) || pip?.document.getElementById(id) || null;
+  const $$ = (sel) => [...document.querySelectorAll(sel), ...(pip ? pip.document.querySelectorAll(sel) : [])];
   const fmt = (n) => Number(n).toLocaleString('en-US');
+
+  // Timers run in whichever window is showing: the widget keeps ticking while the tab is hidden
+  // behind a game, and pending timers move back to the page when the widget closes.
+  const view = () => (pip && !pip.closed ? pip : window);
+  const timers = new Set();
+  function arm(t) {
+    t.win = view();
+    t.id = t.win.setTimeout(() => { if (timers.delete(t)) t.fn(); }, Math.max(0, t.due - Date.now()));
+  }
+  function later(fn, ms = 0) {
+    const t = { fn, due: Date.now() + ms, win: null, id: 0 };
+    timers.add(t);
+    arm(t);
+    return t;
+  }
+  function rearmTimers() {
+    for (const t of timers) {
+      try { t.win.clearTimeout(t.id); } catch {}
+      arm(t);
+    }
+  }
+  const sleep = (ms) => new Promise((r) => later(r, ms));
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const RING = 339.292;
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alike characters
@@ -448,6 +534,7 @@
 
   // On its own, the roll and the 5-second limit live in this browser.
   function localRoll(name) {
+    if (localToday().winner) return { status: 409, data: { error: 'closed' } };
     const now = Date.now();
     const next = Math.max(localNext, store.get('gt_next', 0));
     if (now < next) return { status: 429, data: { error: 'cooldown', waitMs: next - now } };
@@ -483,8 +570,8 @@
   }
 
   function renderOdds() {
-    document.querySelectorAll('[data-odds]').forEach((el) => { el.textContent = fmt(odds); });
-    document.querySelectorAll('[data-cooldown]').forEach((el) => { el.textContent = String(cooldownMs / 1000); });
+    $$('[data-odds]').forEach((el) => { el.textContent = fmt(odds); });
+    $$('[data-cooldown]').forEach((el) => { el.textContent = String(cooldownMs / 1000); });
     const hours = (odds * cooldownMs) / 3_600_000;
     const span = hours >= 1.5 ? `about ${fmt(Math.round(hours))} hours`
       : hours * 60 >= 1 ? `about ${fmt(Math.round(hours * 60))} minutes` : 'less than a minute';
@@ -529,6 +616,95 @@
     $('winnerCount').textContent = s.winnerCount ? `${fmt(s.winnerCount)} found` : '';
     renderBoard(s.leaderboard || []);
     renderOdds();
+    if (s.today) applyToday({ ...s.today, resetAt: Date.now() + s.today.resetInMs });
+  }
+
+  // ---- One golden ticket a day -------------------------------------------
+  let today = null;       // { day, resetAt (this clock), rolls, winner: { name, at, you } | null }
+  let reopening = false;
+
+  const localDay = (t = Date.now()) => {
+    const d = new Date(t);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  // On its own, the day is this browser's day, and only your own win closes it.
+  function localToday() {
+    const now = new Date();
+    const mine = myTickets.find((t) => localDay(Date.parse(t.at)) === localDay());
+    return {
+      day: localDay(),
+      resetAt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(),
+      rolls: 0,
+      winner: mine ? { name: mine.name, at: mine.at, you: true } : null,
+    };
+  }
+
+  function applyToday(t) {
+    const wasClosed = !!today?.winner;
+    const firstLoad = today === null;
+    today = t;
+    const closed = !!t.winner;
+    const ticket = $('ticket');
+    ticket.classList.toggle('closed', closed);
+    ticket.classList.toggle('mine', closed && t.winner.you);
+    $('oddsMeta').hidden = closed;
+    $('nextTicket').hidden = !closed;
+    $('stamp').hidden = !closed;
+    if (closed) {
+      $('stamp').textContent = t.winner.you ? 'Yours' : 'Claimed';
+      if (!rolling) showStatic(odds);
+      const at = new Date(t.winner.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      setVerdict(t.winner.you
+        ? `You found today's golden ticket at ${at}!`
+        : `Found by ${t.winner.name} at ${at}${t.rolls ? ` after ${fmt(t.rolls)} rolls` : ''}.`);
+      if (!wasClosed && !firstLoad) slamStamp();
+    } else if (wasClosed) {
+      ticket.classList.remove('jackpot');
+      showStatic(0);
+      setVerdict("A new golden ticket is out there. Go!");
+    }
+  }
+
+  function slamStamp() {
+    if (reducedMotion) return;
+    const tf = 'translate(-50%, -50%) rotate(-11deg)';
+    $('stamp').animate([
+      { transform: `${tf} scale(2.6)`, opacity: 0 },
+      { transform: `${tf} scale(.92)`, opacity: 1, offset: 0.7 },
+      { transform: `${tf} scale(1)`, opacity: 1 },
+    ], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.2)' });
+    later(() => {
+      sfx.thunk(0);
+      haptics.claimed();
+      $('ticket').animate([{ transform: 'translate(0, 0)' }, { transform: 'translate(-3px, 2px)' }, { transform: 'translate(2px, -1px)' }, { transform: 'translate(0, 0)' }],
+        { duration: 220, easing: 'ease-out' });
+    }, 290);
+  }
+
+  const two = (n) => String(n).padStart(2, '0');
+  function untilParts(ms) {
+    const sec = Math.ceil(ms / 1000);
+    return { h: Math.floor(sec / 3600), m: Math.floor((sec % 3600) / 60), s: sec % 60 };
+  }
+  const shortUntil = (ms) => {
+    const { h, m, s } = untilParts(ms);
+    return h ? `${h}h ${two(m)}m` : m ? `${m}m ${two(s)}s` : `${s}s`;
+  };
+  const clockUntil = (ms) => {
+    const { h, m, s } = untilParts(ms);
+    return `${h}:${two(m)}:${two(s)}`;
+  };
+
+  async function reopen() {
+    reopening = true;
+    if (serverUrl) {
+      await sleep(400 + Math.random() * 2500); // spread everyone's refresh out a little
+      const s = await refreshState();
+      if (!s && today) today.resetAt = Date.now() + 10_000; // try again shortly
+    } else {
+      applyToday(localToday());
+    }
+    reopening = false;
   }
 
   // ---- Winners leaderboard (from the table server) ----------------------
@@ -607,6 +783,19 @@
 
   // ---- Countdown loop --------------------------------------------------
   function tick() {
+    const closed = !!today?.winner && !rolling;
+    $('roller').classList.toggle('closed', closed);
+    if (closed) {
+      const left = Math.max(0, today.resetAt - Date.now());
+      btn.disabled = true;
+      $('roller').classList.remove('ready', 'rolling');
+      label.textContent = shortUntil(left);
+      hint.textContent = 'next ticket';
+      $('ringFill').style.strokeDashoffset = String(RING * Math.min(1, left / 86_400_000));
+      $('nextTicket').textContent = `Next golden ticket in ${clockUntil(left)}`;
+      if (left === 0 && !reopening) reopen();
+      return;
+    }
     const remaining = Math.max(0, readyAt - Date.now());
     const ready = remaining === 0 && !rolling;
     btn.disabled = !ready;
@@ -626,7 +815,20 @@
       $('ringFill').style.strokeDashoffset = '0';
       if (autoInput.checked && $('winOverlay').hidden) roll();
     }
-    requestAnimationFrame(tick);
+  }
+
+  let tickGen = 0;
+  function startTicking() {
+    const gen = ++tickGen;
+    const loop = () => {
+      if (gen !== tickGen) return;
+      tick();
+      const v = view();
+      // Animation frames stop in a hidden tab, so fall back to a timer there (auto-roll keeps going).
+      if (v.document.hidden) v.setTimeout(loop, 250);
+      else v.requestAnimationFrame(loop);
+    };
+    loop();
   }
 
   // ---- Sound (synthesized with Web Audio; nothing to download) ----------
@@ -674,6 +876,56 @@
     };
   })();
 
+  // ---- Haptics (phones and tablets) -----------------------------------------
+  // Android browsers vibrate with real patterns. iPhone Safari has no vibration API, but flipping a
+  // native switch control gives a light tap on iOS 18 and later, so each pulse becomes one tap there.
+  const haptics = (() => {
+    const canVibrate = typeof navigator.vibrate === 'function';
+    const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const supported = matchMedia('(pointer: coarse)').matches && (canVibrate || isIOS);
+    let on = store.get('gt_haptics', true);
+    let iosSwitch = null;
+    function iosTap() {
+      if (!iosSwitch) {
+        iosSwitch = document.createElement('label');
+        iosSwitch.setAttribute('aria-hidden', 'true');
+        iosSwitch.style.cssText = 'position:fixed;left:-200px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.setAttribute('switch', '');
+        input.tabIndex = -1;
+        iosSwitch.append(input);
+        document.body.append(iosSwitch);
+      }
+      iosSwitch.click();
+      iosSwitch.firstChild.blur();
+    }
+    function play(pattern) {
+      if (!supported || !on) return;
+      if (canVibrate) {
+        try { navigator.vibrate(pattern); } catch {}
+        return;
+      }
+      const p = Array.isArray(pattern) ? pattern : [pattern];
+      let at = 0;
+      for (let i = 0; i < p.length; i += 2) {
+        later(iosTap, at);
+        at += p[i] + (p[i + 1] || 0);
+      }
+    }
+    return {
+      supported,
+      get on() { return on; },
+      set on(v) { on = v; store.set('gt_haptics', v); if (v) play(15); },
+      press: () => play(12),
+      land: () => play(20),
+      tease: (h) => play([28, 70, 28 + h * 12]),
+      close: () => play([40, 90, 110]),
+      claimed: () => play([60, 50, 150]),
+      win: () => play([90, 60, 90, 60, 90, 140, 450]),
+    };
+  })();
+
   // ---- Slot reels --------------------------------------------------------
   const CELL = 1.1;      // em: height of one digit on a reel
   const STRIP = 60;      // digits on each reel strip (0-9, six times)
@@ -681,7 +933,6 @@
   const TEASE = ['', 'Ooh…', 'Wait for it…', 'No way…', 'Oh my…'];
   let reels = [];
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const yAt = (index) => `translateY(${(-index * CELL).toFixed(4)}em)`;
   const digitsOf = (value) => String(Math.max(0, Math.floor(value))).padStart(reels.length, '0').slice(-reels.length);
 
@@ -743,7 +994,7 @@
 
   // Where a strip is right now (in digit cells), even mid-animation.
   function indexNow(strip) {
-    const cs = getComputedStyle(strip);
+    const cs = strip.ownerDocument.defaultView.getComputedStyle(strip);
     const m = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform);
     return -m.m42 / (parseFloat(cs.fontSize) * CELL);
   }
@@ -781,7 +1032,11 @@
       { transform: yAt(target - 0.05), offset: 0.91, easing: 'ease-in-out' },
       { transform: yAt(target) },
     ], { duration });
-    return new Promise((resolve) => { anim.onfinish = resolve; anim.oncancel = resolve; });
+    return new Promise((resolve) => {
+      anim.onfinish = resolve;
+      anim.oncancel = resolve;
+      later(resolve, duration + 200); // in case the window it was animating in went away or was hidden
+    });
   }
 
   // How exciting each landed prefix is: on track for the winning number, or for one short of it.
@@ -802,6 +1057,7 @@
     const r = reels[i];
     const ticket = $('ticket');
     sfx.thunk(i);
+    if (!(heat && i < reels.length - 1)) haptics.land();
     const lead = /^0*$/.test(d.slice(0, i + 1));
     r.reel.classList.toggle('lead', lead);
     r.sep?.classList.toggle('lead', lead);
@@ -814,6 +1070,7 @@
     ticket.dataset.heat = String(heat);
     if (heat && i < reels.length - 1) {
       sfx.tease(heat);
+      haptics.tease(heat);
       setVerdict(TEASE[heat]);
     }
     ticket.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(2px)' }, { transform: 'translateY(0)' }],
@@ -834,7 +1091,7 @@
       const spinning = reels.filter((r) => r.spinning).length;
       if (!spinning) return;
       sfx.tick();
-      setTimeout(clicks, 55 + (reels.length - spinning) * 45);
+      later(clicks, 55 + (reels.length - spinning) * 45);
     })();
 
     return {
@@ -848,7 +1105,7 @@
             const prev = i ? heat[i - 1] : 0;
             const duration = 600 + prev * 220;
             landAt = i ? landAt + (quiet ? 90 : 170) + prev * 400 : duration;
-            setTimeout(() => {
+            later(() => {
               stopReel(r, Number(d[i]), duration).then(() => {
                 r.spinning = false;
                 reelLanded(i, d, heat[i]);
@@ -870,8 +1127,10 @@
     if (win) {
       ticket.classList.add('jackpot');
       sfx.win();
+      haptics.win();
     } else if (finalHeat >= 2 || nearMiss) {
       sfx.close();
+      haptics.close();
     }
     if (!reducedMotion) {
       const peak = win ? 1.2 : nearMiss || finalHeat ? 1.1 : 1.06;
@@ -882,13 +1141,14 @@
         { transform: 'scale(1)' },
       ], { duration: win ? 650 : 380, easing: 'ease-out' });
     }
-    if (!win) setTimeout(() => { if (!rolling) ticket.dataset.heat = '0'; }, 900);
+    if (!win) later(() => { if (!rolling) ticket.dataset.heat = '0'; }, 900);
   }
 
   async function roll() {
-    if (rolling || Date.now() < readyAt) return;
+    if (rolling || Date.now() < readyAt || today?.winner) return;
     rolling = true;
     sfx.unlock();
+    haptics.press();
     const name = nameInput.value.trim().slice(0, 40);
     store.set('gt_name', name);
     setVerdict('Rolling…');
@@ -906,6 +1166,11 @@
       await spin.land(last, { quiet: true });
       setVerdict("Couldn't reach the ticket server. Trying again shortly.", true);
       readyAt = Date.now() + 3000;
+    } else if (result.status === 409) {
+      // Someone found today's ticket first.
+      await spin.land(odds, { quiet: true });
+      if (serverUrl) applyServer(result.data);
+      else applyToday(localToday());
     } else if (result.status === 429) {
       readyAt = Date.now() + (result.data.waitMs || cooldownMs);
       await spin.land(last, { quiet: true });
@@ -934,7 +1199,9 @@
       if (data.win) {
         await sleep(reducedMotion ? 300 : 1100);
         celebrate(data.ticket);
-        if (serverUrl) applyServer(data); // after the overlay is up, so your new row flashes when it closes
+        // After the overlay is up, so your leaderboard row flashes and the ticket is stamped when it closes.
+        if (serverUrl) applyServer(data);
+        else applyToday(localToday());
       }
     }
     rolling = false;
@@ -950,27 +1217,28 @@
     $('winDate').textContent = shortDate(ticket.at);
     $('winOverlay').hidden = false;
     document.title = '🎫 YOU WON THE GOLDEN TICKET!';
-    $('closeWin').focus();
+    if (!pip) $('closeWin').focus();
     if (!reducedMotion) confetti();
   }
 
   $('closeWin').addEventListener('click', () => {
     $('winOverlay').hidden = true;
     document.title = 'Golden Ticket';
-    btn.focus();
+    if (!pip) btn.focus();
     if (flashPending) {
       flashPending = false;
-      $('hallPanel').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
-      setTimeout(flashMyRow, reducedMotion ? 0 : 450);
+      if (!pip) $('hallPanel').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      later(flashMyRow, reducedMotion ? 0 : 450);
     }
   });
 
   function confetti() {
     const canvas = $('confetti');
+    const win = canvas.ownerDocument.defaultView;
     const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = innerWidth * dpr;
-    canvas.height = innerHeight * dpr;
+    const dpr = win.devicePixelRatio || 1;
+    canvas.width = win.innerWidth * dpr;
+    canvas.height = win.innerHeight * dpr;
     const colors = ['#fff3c4', '#f2c94c', '#c8901a', '#ffe08a', '#ffffff'];
     const pieces = Array.from({ length: 180 }, () => ({
       x: Math.random() * canvas.width,
@@ -996,22 +1264,93 @@
         ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
         ctx.restore();
       }
-      if (t < end && !$('winOverlay').hidden) requestAnimationFrame(frame);
+      if (t < end && !$('winOverlay').hidden) win.requestAnimationFrame(frame);
       else ctx.clearRect(0, 0, canvas.width, canvas.height);
     })(performance.now());
   }
 
   // ---- Start -----------------------------------------------------------
   btn.addEventListener('click', roll);
-  document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && document.activeElement !== nameInput && $('winOverlay').hidden && !btn.disabled) {
+  function onKey(e) {
+    if (e.code === 'Space' && e.target !== nameInput && $('winOverlay').hidden && !btn.disabled) {
       e.preventDefault();
       roll();
     }
-  });
+  }
+  document.addEventListener('keydown', onKey);
+
+  // ---- Mini widget ---------------------------------------------------------
+  // Chrome and Edge on desktop can open a small always-on-top window that holds real page content
+  // (Document Picture-in-Picture). The ticket, button and switches move into it, so it's the same
+  // game in a smaller window: always in sync, and it keeps rolling while you play something else.
+  const canPopOut = 'documentPictureInPicture' in window && !matchMedia('(pointer: coarse)').matches;
+
+  async function popOut() {
+    if (pip || rolling) return;
+    let w;
+    try {
+      w = await documentPictureInPicture.requestWindow({ width: 380, height: 300 });
+    } catch {
+      return;
+    }
+    const doc = w.document;
+    for (const sheet of document.styleSheets) {
+      try {
+        const style = doc.createElement('style');
+        style.textContent = [...sheet.cssRules].map((r) => r.cssText).join('\n');
+        doc.head.append(style);
+      } catch {
+        if (!sheet.href) continue; // a cross-origin stylesheet (the web fonts): link it instead
+        const link = doc.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = sheet.href;
+        doc.head.append(link);
+      }
+    }
+    doc.title = 'Golden Ticket';
+    doc.body.className = 'widget';
+    const parts = ['ticket', 'roller', 'autoToggle', 'soundToggle', 'winOverlay'].map((id) => $(id));
+    const slots = parts.map((el) => {
+      const mark = document.createComment('mini widget');
+      el.before(mark);
+      return [el, mark];
+    });
+    const [ticketEl, rollerEl, autoEl, soundEl, overlayEl] = parts;
+    const wrap = doc.createElement('div');
+    wrap.className = 'widget-wrap';
+    const row = doc.createElement('div');
+    row.className = 'widget-row';
+    const side = doc.createElement('div');
+    side.className = 'widget-side';
+    side.append(autoEl, soundEl);
+    row.append(rollerEl, side);
+    wrap.append(ticketEl, row);
+    doc.body.append(wrap, overlayEl);
+    doc.addEventListener('keydown', onKey);
+    pip = w;
+    $('popped').hidden = false;
+    $('popOut').hidden = true;
+    rearmTimers();
+    startTicking();
+    w.addEventListener('pagehide', () => {
+      for (const [el, mark] of slots) mark.replaceWith(el);
+      pip = null;
+      $('popped').hidden = true;
+      $('popOut').hidden = false;
+      rearmTimers();
+      startTicking();
+    }, { once: true });
+  }
+
+  $('popOut').hidden = !canPopOut;
+  $('popOut').addEventListener('click', popOut);
+  $('popIn').addEventListener('click', () => pip?.close());
 
   soundInput.checked = sfx.on;
   soundInput.addEventListener('change', () => { sfx.on = soundInput.checked; });
+  $('hapticsToggle').hidden = !haptics.supported;
+  $('haptics').checked = haptics.on;
+  $('haptics').addEventListener('change', () => { haptics.on = $('haptics').checked; });
   showStatic(me.recent[0] || 0);
   renderMe();
   renderOdds();
@@ -1021,11 +1360,13 @@
     if (online) {
       const s = await refreshState();
       if (s && s.waitMs > 0) readyAt = Date.now() + s.waitMs;
-      setInterval(() => { if (!document.hidden && !rolling) refreshState(); }, 60_000);
+      if (!today) applyToday(localToday()); // server unreachable on the first call: don't block the page
+      setInterval(() => { if (!view().document.hidden && !rolling) refreshState(); }, 60_000);
     } else {
       readyAt = store.get('gt_next', 0);
+      applyToday(localToday());
     }
-    requestAnimationFrame(tick);
+    startTicking();
   });
 })();
 </script>

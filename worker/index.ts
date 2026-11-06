@@ -2,9 +2,10 @@
 //
 // Optional. Without it the public site still works, but every roll happens in the
 // visitor's browser. With it, the server does every roll (so wins can't be faked),
-// enforces the 5-second limit per player and per IP address, keeps the roll count
-// across all players, and saves every winner so the owner can check ticket codes
-// on owner.html.
+// enforces the 5-second limit per player and per IP address, hands out only one
+// golden ticket per day (rolling closes until midnight once it's found), keeps the
+// roll counts and the winners leaderboard, and saves every winner so the owner can
+// check ticket codes on owner.html.
 import { DurableObject } from "cloudflare:workers";
 
 interface Env {
@@ -12,6 +13,7 @@ interface Env {
   ALLOWED_ORIGINS?: string;
   ADMIN_PASSWORD?: string;
   WIN_ODDS?: string; // testing only; defaults to 10,000
+  TIMEZONE?: string; // the daily ticket resets at midnight here; defaults to UTC
 }
 
 const DEFAULT_ODDS = 10_000;
@@ -56,6 +58,52 @@ async function samePassword(given: string, expected: string): Promise<boolean> {
   return crypto.subtle.timingSafeEqual(await sha256(given), await sha256(expected));
 }
 
+/* ---------------- Days: one golden ticket per day, reset at midnight in TIMEZONE ---------------- */
+
+function zoneOf(env: Env): string {
+  const tz = env.TIMEZONE || "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return tz;
+  } catch {
+    return "UTC";
+  }
+}
+
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function partsOf(t: number, tz: string): Record<string, string> {
+  let f = formatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    formatters.set(tz, f);
+  }
+  const out: Record<string, string> = {};
+  for (const { type, value } of f.formatToParts(t)) out[type] = value;
+  return out;
+}
+
+const dayKey = (t: number, tz: string) => {
+  const p = partsOf(t, tz);
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+// The first moment of the next day in `tz`: a binary search for the second the date changes,
+// which stays right on 23- and 25-hour daylight-saving days and in half-hour zones.
+function nextMidnight(t: number, tz: string): number {
+  const today = dayKey(t, tz);
+  let lo = Math.floor(t / 1000);  // still today
+  let hi = lo + 26 * 3600;        // certainly a later day
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (dayKey(mid * 1000, tz) === today) lo = mid;
+    else hi = mid;
+  }
+  return hi * 1000;
+}
+
 type Row = Record<string, SqlStorageValue>;
 
 /* ---------------- The table (one Durable Object holds every roll count and winner) ---------------- */
@@ -77,6 +125,22 @@ export class Table extends DurableObject<Env> {
       `CREATE INDEX IF NOT EXISTS winners_player ON winners (player, at)`,
       `CREATE TABLE IF NOT EXISTS owner_fails (ip TEXT PRIMARY KEY, count INTEGER NOT NULL, since INTEGER NOT NULL)`,
     ]) this.sql.exec(stmt);
+
+    // Added for the daily ticket: today's roll count, and which day each ticket belongs to.
+    this.addColumn("stats", "day TEXT NOT NULL DEFAULT ''");
+    this.addColumn("stats", "day_rolls INTEGER NOT NULL DEFAULT 0");
+    this.addColumn("winners", "day TEXT");
+    const tz = zoneOf(env);
+    for (const w of this.sql.exec("SELECT code, at FROM winners WHERE day IS NULL").toArray() as Row[]) {
+      this.sql.exec("UPDATE winners SET day = ? WHERE code = ?", dayKey(Number(w.at), tz), w.code);
+    }
+    this.sql.exec("CREATE INDEX IF NOT EXISTS winners_day ON winners (day)");
+  }
+
+  private addColumn(table: string, definition: string) {
+    const name = definition.split(" ")[0];
+    const columns = this.sql.exec(`PRAGMA table_info(${table})`).toArray() as Row[];
+    if (!columns.some((c) => c.name === name)) this.sql.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   }
 
   private one(query: string, ...args: SqlStorageValue[]): Row | null {
@@ -121,6 +185,21 @@ export class Table extends DurableObject<Env> {
     return [...top, toEntry(mine, Number(ahead?.n ?? 0) + 1)];
   }
 
+  // Today's ticket: who found it (if anyone), how many rolls today, and when the next one drops.
+  private today(player: string, now = Date.now()) {
+    const tz = zoneOf(this.env);
+    const day = dayKey(now, tz);
+    const w = this.one("SELECT name, at, player FROM winners WHERE day = ? ORDER BY at LIMIT 1", day);
+    const stats = this.one("SELECT day, day_rolls FROM stats WHERE id = 1");
+    return {
+      day,
+      timeZone: tz,
+      resetInMs: nextMidnight(now, tz) - now,
+      rolls: stats && stats.day === day ? Number(stats.day_rolls) : 0,
+      winner: w ? { name: String(w.name), at: new Date(Number(w.at)).toISOString(), you: w.player === player } : null,
+    };
+  }
+
   private publicState(player: string) {
     return {
       odds: oddsOf(this.env),
@@ -128,6 +207,7 @@ export class Table extends DurableObject<Env> {
       totalRolls: this.totalRolls(),
       winnerCount: Number(this.one("SELECT COUNT(*) AS n FROM winners")?.n ?? 0),
       leaderboard: this.leaderboard(player),
+      today: this.today(player),
     };
   }
 
@@ -137,16 +217,24 @@ export class Table extends DurableObject<Env> {
 
   async roll(player: string, ip: string, rawName: unknown) {
     const now = Date.now();
+    const day = dayKey(now, zoneOf(this.env));
+    // One golden ticket per day: once it's found, rolling is closed until midnight.
+    // (The object handles one request at a time, so two players can't both win today.)
+    if (this.one("SELECT 1 FROM winners WHERE day = ?", day)) return { error: "closed" as const, ...this.publicState(player) };
     const keys = [`p:${player}`, `ip:${ip}`];
     const wait = this.waitMs(keys, now);
-    if (wait > 0) return { error: "cooldown", waitMs: wait };
+    if (wait > 0) return { error: "cooldown" as const, waitMs: wait };
     for (const key of keys) this.lastRoll.set(key, now);
     for (const [key, t] of this.lastRoll) if (now - t >= COOLDOWN_MS) this.lastRoll.delete(key);
 
     const odds = oddsOf(this.env);
     const roll = randomInt(odds) + 1; // 1..odds
     const win = roll === odds;
-    this.sql.exec("UPDATE stats SET total_rolls = total_rolls + 1 WHERE id = 1");
+    this.sql.exec(
+      `UPDATE stats SET total_rolls = total_rolls + 1,
+         day_rolls = CASE WHEN day = ? THEN day_rolls + 1 ELSE 1 END, day = ? WHERE id = 1`,
+      day, day,
+    );
 
     let ticket = null;
     if (win) {
@@ -155,8 +243,8 @@ export class Table extends DurableObject<Env> {
       const name = cleanName(rawName);
       const rollNumber = this.totalRolls();
       this.sql.exec(
-        "INSERT INTO winners (code, name, at, roll_number, ip, player) VALUES (?, ?, ?, ?, ?, ?)",
-        code, name, now, rollNumber, ip, player,
+        "INSERT INTO winners (code, name, at, roll_number, ip, player, day) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        code, name, now, rollNumber, ip, player, day,
       );
       ticket = { code, name, at: new Date(now).toISOString(), rollNumber };
     }
@@ -229,7 +317,7 @@ export default {
     const url = new URL(request.url);
     const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
     if (request.method === "GET" && url.pathname === "/") {
-      return json({ ok: true, service: "Golden Ticket table", table: true, ownerPage: !!env.ADMIN_PASSWORD, odds: oddsOf(env) }, 200, cors);
+      return json({ ok: true, service: "Golden Ticket table", table: true, ownerPage: !!env.ADMIN_PASSWORD, odds: oddsOf(env), timeZone: zoneOf(env) }, 200, cors);
     }
     if (!url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404, cors);
     if (!originOk) return json({ error: "origin_not_allowed" }, 403, cors);
@@ -251,8 +339,9 @@ export default {
       case "/api/roll": {
         if (!validPlayer(body.player)) return json({ error: "bad_player" }, 400, cors);
         const out = await table.roll(body.player, ip, body.name);
-        if ("error" in out) {
-          return json(out, 429, { ...cors, "Retry-After": String(Math.ceil(out.waitMs / 1000)) });
+        if ("error" in out && out.error === "closed") return json(out, 409, cors);
+        if ("error" in out && out.error === "cooldown") {
+          return json(out, 429, { ...cors, "Retry-After": String(Math.ceil(Number(out.waitMs) / 1000)) });
         }
         return json(out, 200, cors);
       }
