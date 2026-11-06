@@ -219,13 +219,34 @@
 
   /* Today's ticket is taken: stamp the ticket and count down to midnight */
   .ticket > .stamp {
-    position: absolute; left: 50%; top: 46%; z-index: 3; pointer-events: none;
+    position: absolute; left: 50%; top: 40%; z-index: 3; pointer-events: none;
     transform: translate(-50%, -50%) rotate(-11deg);
-    font: 800 clamp(20px, 6vw, 32px)/1 var(--sans); letter-spacing: .22em; text-transform: uppercase;
-    color: var(--red); border: 3px solid currentColor; border-radius: 10px; padding: 8px 12px 8px 17px;
-    background: rgba(18, 10, 7, .62);
+    font: 800 clamp(20px, 6vw, 34px)/1 var(--sans); letter-spacing: .22em; text-transform: uppercase;
+    color: var(--red); border: 3px solid currentColor; border-radius: 10px; padding: 10px 14px 10px 19px;
+    outline: 1.5px solid currentColor; outline-offset: -8px;
+    background: rgba(18, 10, 7, .66);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.6 1.75'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='70'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.6 1.75'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   }
   .ticket.mine > .stamp { color: var(--gold-2); }
+
+  /* Split-flap countdown to the next ticket */
+  .flipclock { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 2px 0 0; }
+  .fc-label { font-size: 11px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
+  .fc-digits { display: flex; align-items: center; gap: 4px; perspective: 300px; }
+  .fc-colon { font: 800 22px/1 var(--sans); color: var(--gold-2); opacity: .7; margin: 0 1px; }
+  .fc-card {
+    position: relative; width: 26px; height: 38px; font: 800 26px/1 var(--sans); font-variant-numeric: tabular-nums;
+    color: var(--gold-1); border-radius: 6px; box-shadow: 0 3px 6px rgba(0, 0, 0, .5);
+  }
+  .fc-half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; background: linear-gradient(#2e1e12, #24170e); }
+  .fc-half.top { top: 0; border-radius: 6px 6px 0 0; border-bottom: 1px solid rgba(0, 0, 0, .55); }
+  .fc-half.bottom { bottom: 0; border-radius: 0 0 6px 6px; background: linear-gradient(#21150d, #1a110a); }
+  .fc-half > span { position: absolute; left: 0; right: 0; height: 200%; display: flex; align-items: center; justify-content: center; }
+  .fc-half.top > span { top: 0; }
+  .fc-half.bottom > span { bottom: 0; }
+  .fc-half.flap { -webkit-backface-visibility: hidden; backface-visibility: hidden; z-index: 2; }
+  .fc-half.top.flap { transform-origin: 50% 100%; }
+  .fc-half.bottom.flap { transform-origin: 50% 0; }
   .ticket.closed:not(.mine) .reel { opacity: .28; }
   .ticket.closed .verdict { color: var(--text); }
 
@@ -345,7 +366,18 @@
   .chip.best { box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .6); }
   .empty { margin: 0; color: var(--faint); font-size: 14px; }
   .winners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .winners li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
+  .winners li {
+    --notch: 7px;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px;
+    padding: 9px 16px; border-radius: 8px; border: 1px dashed rgba(242, 201, 76, .3);
+    background: linear-gradient(100deg, rgba(242, 201, 76, .1), rgba(242, 201, 76, .03));
+    -webkit-mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+            mask:
+      radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
+      radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
+  }
   .winners li span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .winners li span:last-child { color: var(--muted); flex: none; }
   .winners li span.code { font: 700 14px var(--mono); letter-spacing: .04em; color: var(--gold-2); }
@@ -357,6 +389,12 @@
     padding: 8px 10px; border-radius: 10px; font-size: 14px;
   }
   .board li.top { background: rgba(242, 201, 76, .06); }
+  .board li.first {
+    background: linear-gradient(100deg, rgba(242, 201, 76, .08) 30%, rgba(255, 243, 196, .2) 50%, rgba(242, 201, 76, .08) 70%) 0 0 / 300% 100%;
+    animation: firstshine 5s linear infinite;
+  }
+  @keyframes firstshine { from { background-position: 100% 0; } to { background-position: -200% 0; } }
+  .board .crown { margin-right: 6px; }
   .board li.you { background: rgba(242, 201, 76, .1); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .55); }
   .board li.gap { display: block; padding: 0; text-align: center; color: var(--muted); }
   .board .rank { text-align: center; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -512,7 +550,11 @@
   .widget .roll-number { font-size: clamp(28px, 12vw, 64px); }
   .widget .roll-meta { font-size: 11px; }
   .widget .verdict { font-size: 12px; margin-top: 3px; }
-  .widget .ticket > .stamp { font-size: clamp(14px, 5vw, 26px); border-width: 2px; padding: 5px 8px 5px 12px; }
+  .widget .ticket > .stamp { font-size: clamp(14px, 5vw, 26px); border-width: 2px; padding: 5px 8px 5px 12px; outline-offset: -5px; }
+  .widget .flipclock { gap: 3px; }
+  .widget .fc-label { font-size: 8px; }
+  .widget .fc-card { width: 15px; height: 22px; font-size: 15px; border-radius: 4px; }
+  .widget .fc-colon { font-size: 13px; }
   .widget-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
   .widget .roller { --size: 92px; flex: none; }
   .widget .roll-btn { inset: 9px; }
@@ -586,7 +628,11 @@
           </div>
           <span class="sr-only" id="rollSr" aria-live="polite"></span>
           <p class="roll-meta" id="oddsMeta">out of <span data-odds>10,000</span></p>
-          <p class="roll-meta next" id="nextTicket" hidden></p>
+          <p class="roll-meta next sr-only" id="nextTicket" hidden></p>
+          <div class="flipclock" id="flipClock" hidden aria-hidden="true">
+            <span class="fc-label">Next golden ticket in</span>
+            <span class="fc-digits" id="fcDigits"></span>
+          </div>
           <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
         </div>
         <div class="ticket-stub" aria-hidden="true"><span>Golden Ticket · Admit One</span></div>
@@ -937,6 +983,8 @@
     ticket.classList.toggle('mine', closed && t.winner.you);
     $('oddsMeta').hidden = closed;
     $('nextTicket').hidden = !closed;
+    $('flipClock').hidden = !closed;
+    if (closed) flipClock.set(Math.max(0, t.resetAt - Date.now()));
     $('stamp').hidden = !closed;
     if (closed) {
       $('stamp').textContent = t.winner.you ? 'Yours' : 'Claimed';
@@ -968,6 +1016,7 @@
     later(() => {
       sfx.thunk(0);
       haptics.claimed();
+      fx.sparks($('stamp'), { count: 22, power: 0.9, spread: Math.PI * 2, up: false, colors: today?.winner?.you ? fx.GOLDS : ['#ff8f6b', '#e5644a', '#ffb199', '#c94c35'] });
       $('ticket').animate([{ transform: 'translate(0, 0)' }, { transform: 'translate(-3px, 2px)' }, { transform: 'translate(2px, -1px)' }, { transform: 'translate(0, 0)' }],
         { duration: 220, easing: 'ease-out' });
     }, 290);
@@ -986,6 +1035,74 @@
     const { h, m, s } = untilParts(ms);
     return `${h}:${two(m)}:${two(s)}`;
   };
+
+  // Split-flap digits: the old value's top half folds down onto the new value's bottom half.
+  const flipClock = (() => {
+    let cards = [];
+    let shown = '';
+    function build(text) {
+      const host = $('fcDigits');
+      host.replaceChildren();
+      cards = [...text].map((ch) => {
+        if (ch === ':') {
+          const colon = document.createElement('span');
+          colon.className = 'fc-colon';
+          colon.textContent = ':';
+          host.append(colon);
+          return null;
+        }
+        const card = document.createElement('span');
+        card.className = 'fc-card';
+        const half = (pos, v) => {
+          const h = document.createElement('span');
+          h.className = `fc-half ${pos}`;
+          const t = document.createElement('span');
+          t.textContent = v;
+          h.append(t);
+          return h;
+        };
+        const top = half('top', ch), bottom = half('bottom', ch);
+        card.append(top, bottom);
+        host.append(card);
+        return { card, top, bottom, value: ch };
+      });
+      shown = text;
+    }
+    function flip(c, next) {
+      const old = c.value;
+      c.value = next;
+      c.top.firstChild.textContent = next;
+      if (reducedMotion || document.hidden || !c.card.isConnected) { c.bottom.firstChild.textContent = next; return; }
+      const doc = c.card.ownerDocument;
+      const mk = (pos, v) => {
+        const h = doc.createElement('span');
+        h.className = `fc-half ${pos} flap`;
+        const t = doc.createElement('span');
+        t.textContent = v;
+        h.append(t);
+        c.card.append(h);
+        return h;
+      };
+      const down = mk('top', old), up = mk('bottom', next);
+      up.style.transform = 'rotateX(90deg)';
+      down.animate([{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(-90deg)' }], { duration: 170, easing: 'ease-in', fill: 'forwards' })
+        .onfinish = () => {
+          down.remove();
+          up.animate([{ transform: 'rotateX(90deg)' }, { transform: 'rotateX(0deg)' }], { duration: 170, easing: 'ease-out', fill: 'forwards' })
+            .onfinish = () => { c.bottom.firstChild.textContent = next; up.remove(); };
+        };
+    }
+    return {
+      set(ms) {
+        const { h, m, s: sec } = untilParts(ms);
+        const text = `${two(h)}:${two(m)}:${two(sec)}`;
+        if (text === shown) return;
+        if (text.length !== shown.length || !cards.length || !cards.some((c) => c && c.card.isConnected)) { build(text); return; }
+        [...text].forEach((ch, i) => { const c = cards[i]; if (c && c.value !== ch) flip(c, ch); });
+        shown = text;
+      },
+    };
+  })();
 
   async function reopen() {
     reopening = true;
@@ -1010,7 +1127,10 @@
     ], { duration: 900, iterations: 3, easing: 'ease-out' });
   }
 
+  let boardShown = false;
   function renderBoard(rows) {
+    const list = $('board');
+    const oldRects = new Map([...list.querySelectorAll('li[data-key]')].map((li) => [li.dataset.key, li.getBoundingClientRect()]));
     const items = [];
     rows.forEach((e, i) => {
       if (i > 0 && e.rank > rows[i - 1].rank + 1) {
@@ -1021,14 +1141,22 @@
         items.push(gap);
       }
       const li = document.createElement('li');
-      li.className = [e.rank <= 3 ? 'top' : '', e.you ? 'you' : ''].join(' ').trim();
+      li.className = [e.rank <= 3 ? 'top' : '', e.rank === 1 ? 'first' : '', e.you ? 'you' : ''].join(' ').replace(/\s+/g, ' ').trim();
+      li.dataset.key = `${e.name}|${e.you ? 'you' : ''}`;
       const rank = document.createElement('span');
       rank.className = 'rank' + (e.rank <= 3 ? ' medal' : '');
       rank.textContent = ['🥇', '🥈', '🥉'][e.rank - 1] || `#${e.rank}`;
       rank.title = `Rank ${e.rank}`;
       const who = document.createElement('span');
       who.className = 'who';
-      who.textContent = e.name;
+      if (e.rank === 1) {
+        const crown = document.createElement('span');
+        crown.className = 'crown';
+        crown.textContent = '👑';
+        crown.setAttribute('aria-hidden', 'true');
+        who.append(crown);
+      }
+      who.append(e.name);
       if (e.you) {
         const tag = document.createElement('span');
         tag.className = 'tag';
@@ -1045,8 +1173,24 @@
       li.append(rank, who, tix, when);
       items.push(li);
     });
-    $('board').replaceChildren(...items);
+    list.replaceChildren(...items);
     $('boardEmpty').hidden = rows.length > 0;
+    if (!reducedMotion && !document.hidden) {
+      items.forEach((li, i) => {
+        if (!li.dataset.key) return;
+        const old = oldRects.get(li.dataset.key);
+        if (!boardShown) {
+          li.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: i * 45, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' });
+        } else if (old) {
+          const now = li.getBoundingClientRect();
+          const dy = old.top - now.top;
+          if (Math.abs(dy) > 1) li.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(.3, 1.2, .5, 1)' });
+        } else {
+          li.animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'ease-out' });
+        }
+      });
+    }
+    if (rows.length) boardShown = true;
 
     const mine = rows.find((e) => e.you)?.tickets ?? 0;
     if (boardTickets !== null && mine > boardTickets) {
@@ -1097,6 +1241,7 @@
       hint.textContent = 'next ticket';
       setRing(Math.min(1, left / 86_400_000));
       $('nextTicket').textContent = `Next golden ticket in ${clockUntil(left)}`;
+      flipClock.set(left);
       if (left === 0 && !reopening) reopen();
       return;
     }
@@ -1856,14 +2001,14 @@
         },
       };
     }
-    function sparks(el, { count = 10, power = 1, spread = Math.PI * 0.9, up = true } = {}) {
+    function sparks(el, { count = 10, power = 1, spread = Math.PI * 0.9, up = true, colors = GOLDS } = {}) {
       const { x, y, r } = centerOf(el);
       const parts = [];
       for (let i = 0; i < count; i++) {
         const angle = (up ? -Math.PI / 2 : Math.random() * Math.PI * 2) + (Math.random() - 0.5) * spread;
         const sx = x + (Math.random() - 0.5) * r.width * 0.6;
         const sy = up ? r.top + r.height * 0.15 : y;
-        parts.push(spark(sx, sy, angle, (260 + Math.random() * 380) * power, 0.35 + Math.random() * 0.35, pick(GOLDS), 1.5 + Math.random() * 1.6));
+        parts.push(spark(sx, sy, angle, (260 + Math.random() * 380) * power, 0.35 + Math.random() * 0.35, pick(colors), 1.5 + Math.random() * 1.6));
       }
       add(el, parts);
     }
