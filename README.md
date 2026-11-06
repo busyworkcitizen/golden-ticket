@@ -37,7 +37,7 @@ The table server is a Cloudflare Worker (`worker/index.ts`) with a built-in SQLi
 
 1. **Deploy the Worker.** Sign up free at [dash.cloudflare.com](https://dash.cloudflare.com), open Workers & Pages, create an application and import this GitHub repository. Cloudflare reads `wrangler.toml` and deploys it. From a terminal you can run `npm install`, `npx wrangler login` and then `npm run worker:deploy` instead.
 2. **Set the owner password.** In the Worker, open Settings → Variables and Secrets and add a secret named `ADMIN_PASSWORD`. Use something long. (Or run `npx wrangler secret put ADMIN_PASSWORD`.)
-3. **Set your time zone.** The daily ticket resets at midnight in `TIMEZONE` in `wrangler.toml`, which starts as `UTC`. Change it to yours, such as `America/New_York`, `America/Chicago`, `America/Los_Angeles` or `Europe/London`, and commit.
+3. **Time zone.** The daily ticket resets at midnight in `TIMEZONE` in `wrangler.toml`, which is set to `America/Los_Angeles` (Pacific time, daylight saving included). To change it, use another name such as `America/New_York` or `Europe/London`, and commit.
 4. **Check it.** Opening the Worker's URL (something like `https://golden-ticket.<your-subdomain>.workers.dev`) should show `"table": true`, `"ownerPage": true` and your `"timeZone"`.
 5. **Point the site at it.** Set `serverUrl` in `config.json` to that URL. GitHub's web editor is fine. GitHub Pages redeploys and the site uses the server.
 
