@@ -655,6 +655,33 @@
     .stat b { font-size: 20px; }
     .roller { --size: 150px; }
   }
+  /* Short screens: tighten the stage so the coin fits without scrolling */
+  @media (min-width: 1040px) and (max-height: 860px) {
+    .app { padding-top: 22px; gap: 36px; }
+    .stage { gap: 14px; }
+    h1 { font-size: 64px; margin: 6px 0 8px; }
+    .sub { font-size: 15px; }
+    .today { padding: 7px 16px; }
+    .ticket-face { padding-top: 14px; padding-bottom: 14px; }
+    .roll-number { font-size: 86px; }
+    .slot { margin: 8px auto 6px; }
+    .roller { --size: 136px; }
+    .coin-face { font-size: 21px; }
+  }
+  @media (max-width: 1039px) and (max-height: 760px) {
+    .app { padding-top: 18px; gap: 16px; }
+    .stage { gap: 14px; }
+    h1 { font-size: clamp(38px, 11vw, 56px); margin: 6px 0 8px; }
+    .sub { font-size: 14px; }
+    .today { padding: 7px 14px; font-size: 13px; }
+    .ticket-face { padding-top: 12px; padding-bottom: 12px; }
+    .slot { margin: 6px auto 4px; }
+    .roller { --size: 128px; }
+    .coin-face { font-size: 20px; }
+  }
+  @media (max-width: 1039px) and (max-height: 620px) {
+    .sub { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
@@ -2329,8 +2356,11 @@
   }
   fab.addEventListener('click', () => roll());
   if ('IntersectionObserver' in window) {
-    // The coin counts as in view once most of it shows; a sliver at the screen edge is hard to tap.
-    new IntersectionObserver(([entry]) => { coinInView = entry.intersectionRatio >= 0.6; }, { threshold: [0, 0.3, 0.6, 0.9, 1] }).observe($('roller'));
+    // Show the floating coin only once you've scrolled past the real one (it's above the screen and
+    // mostly out of view). While the coin is still further down, the floating one would just cover the ticket.
+    new IntersectionObserver(([entry]) => {
+      coinInView = entry.intersectionRatio >= 0.6 || entry.boundingClientRect.top > 0;
+    }, { threshold: [0, 0.3, 0.6, 0.9, 1] }).observe($('roller'));
   }
   // ---- Title shine ------------------------------------------------------------
   (() => {
