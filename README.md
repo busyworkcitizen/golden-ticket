@@ -10,13 +10,24 @@ Play it at **https://busyworkcitizen.github.io/golden-ticket/** once GitHub Page
 - **Suspense.** If the reels are on track for a close call (9…, 99…, 999…), the next reel holds back and the ticket starts to glow. A win builds all the way up.
 - **Wait.** Then you wait 5 seconds before you can roll again. The countdown ring shows how long.
 - **Auto-roll.** Turn it on and the page rolls for you every 5 seconds while it's open.
-- **Win.** You get a golden ticket with a code. Screenshot it and show the code to the owner.
+- **Win.** The golden ticket flips out to you with its code. **Copy code** puts it on your clipboard and **Save image** downloads a picture of your ticket. Show the code to the owner to claim your prize.
 - **One a day.** Once today's ticket is found, the ticket is stamped CLAIMED with who found it and when, and the button counts down to midnight.
 - **Sound.** Clicks, thunks and a win chime, made in the browser. Turn them off with the Sound switch.
 - **Haptics.** On phones, the reels thunk, near misses pulse and a win buzzes. Android vibrates; iPhones (iOS 18 and later) get light taps. Turn them off with the Haptics switch.
 - **Mini widget.** On a computer, press *Mini widget* to pop the ticket into a small always-on-top window you can keep over a game (see below). Works in Chrome, Edge and Opera GX.
 
 At one roll every 5 seconds, the average player needs about 14 hours of non-stop rolling to win.
+
+## What's on the page
+
+- **Today bar:** whether today's ticket is still out there or who claimed it, today's roll count and when the next ticket drops.
+- **The ticket:** five slot reels in a recessed window. Sparks fly as each reel lands; a near miss dims the page around the ticket and the gold dust speeds up. On a computer the ticket tilts and catches the light as you move the mouse.
+- **The coin:** press it (or Space) to roll. The ring around it counts down to your next roll.
+- **When the day is claimed:** the ticket is stamped CLAIMED (or YOURS) and a split-flap clock counts down to midnight.
+- **Your stats, last rolls, golden tickets and the winners leaderboard** sit beside the game on wide screens and below it on phones.
+- Everything animated respects the system's *reduce motion* setting. The gold dust pauses whenever the browser window isn't focused, so it costs nothing while you're in a game.
+
+Shared links show a preview card (`og.png`), and the site can be added to a phone's home screen like an app.
 
 ## Running it
 
@@ -113,6 +124,8 @@ npx wrangler dev --var ALLOWED_ORIGINS:http://localhost:8080 --var ADMIN_PASSWOR
 index.html         The game page: markup, styles and script.
 owner.html         The owner's winners list and ticket checker (needs the table server).
 config.json        Tells the public site where the table server lives.
+favicon.svg, icon-*.png, site.webmanifest   Site icon and home-screen app details.
+og.png             The preview card shown when the link is shared.
 worker/index.ts    The table server: rolls, 5-second limit, one ticket a day, leaderboard, owner login.
 wrangler.toml      Server settings: allowed sites, time zone, database.
 ```

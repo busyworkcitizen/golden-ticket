@@ -4,9 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Golden Ticket</title>
-<meta name="description" content="One roll every 5 seconds. 1 in 10,000 wins the golden ticket.">
-<meta name="theme-color" content="#120a07">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎫</text></svg>">
+<meta name="description" content="One roll every 5 seconds. Only one golden ticket a day. Roll a perfect 10,000 before anyone else does.">
+<meta name="theme-color" content="#0e0704">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="site.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Golden Ticket">
+<meta property="og:title" content="Golden Ticket">
+<meta property="og:description" content="One roll every 5 seconds. Only one golden ticket a day. Roll a perfect 10,000 before anyone else does.">
+<meta property="og:url" content="https://busyworkcitizen.github.io/golden-ticket/">
+<meta property="og:image" content="https://busyworkcitizen.github.io/golden-ticket/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A golden ticket showing 10,000, next to the words Golden Ticket: one roll every 5 seconds, only one golden ticket a day.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -85,10 +97,9 @@
     background: linear-gradient(100deg, #e2a92f 0%, #fff3c4 16%, #f2c94c 30%, #b37a0c 48%, #f2c94c 62%, #fff8dc 72%, #d39a22 88%, #f2c94c 100%);
     background-size: 240% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
+    background-position: 0% 50%;
     filter: drop-shadow(0 2px 0 rgba(80, 48, 4, .6)) drop-shadow(0 10px 26px rgba(242, 201, 76, .24));
-    animation: titleshine 8s ease-in-out infinite;
   }
-  @keyframes titleshine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .sub { color: var(--muted); margin: 0 auto; max-width: 40ch; }
   .sub strong { color: var(--text); font-weight: 600; }
 
@@ -98,10 +109,15 @@
     padding: 9px 18px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line);
     font-size: 14px; text-align: center;
   }
-  .today-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); flex: none; animation: live 2s ease-out infinite; }
-  .today[data-state="closed"] .today-dot { background: var(--red); animation: none; box-shadow: 0 0 10px rgba(255, 143, 107, .7); }
-  .today[data-state="mine"] .today-dot { background: var(--gold-2); animation: none; box-shadow: 0 0 10px rgba(242, 201, 76, .9); }
-  @keyframes live { 0% { box-shadow: 0 0 0 0 rgba(127, 224, 160, .55); } 70%, 100% { box-shadow: 0 0 0 9px rgba(127, 224, 160, 0); } }
+  .today-dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--green); flex: none; }
+  .today-dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--green);
+    animation: live 2s ease-out infinite;
+  }
+  .today[data-state="closed"] .today-dot { background: var(--red); box-shadow: 0 0 10px rgba(255, 143, 107, .7); }
+  .today[data-state="mine"] .today-dot { background: var(--gold-2); box-shadow: 0 0 10px rgba(242, 201, 76, .9); }
+  .today:not([data-state="open"]) .today-dot::after { display: none; }
+  @keyframes live { from { transform: scale(1); opacity: .6; } 70%, to { transform: scale(3); opacity: 0; } }
   .today-text { font-weight: 600; }
   .today-meta { color: var(--muted); font-variant-numeric: tabular-nums; }
 
@@ -302,11 +318,11 @@
   }
   .roll-btn:disabled .coin-face { box-shadow: inset 0 0 0 2px rgba(242, 201, 76, .12); text-shadow: none; }
   .roll-btn:disabled small { color: var(--muted); opacity: 1; }
-  .roller.ready .ring-fill { animation: pulse 1.6s ease-in-out infinite; }
+  .roller.ready .ring-tip { animation: tippulse 1.6s ease-in-out infinite; }
   .roller.rolling .ring { animation: ringspin .8s linear infinite; }
   .roller.closed .coin-face { font-size: 18px; letter-spacing: .02em; }
   @keyframes ringspin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
-  @keyframes pulse { 50% { stroke: var(--gold-1); } }
+  @keyframes tippulse { 50% { opacity: .35; } }
 
   /* Controls */
   .dock { width: 100%; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
@@ -1223,44 +1239,53 @@
 
   // ---- Countdown loop --------------------------------------------------
   let ringLeft = 0; // how much of the countdown ring is empty (0 to 1), for the live view
+  let ringShown = -1;
   const setRing = (f) => {
     ringLeft = f;
-    $('ringFill').style.strokeDashoffset = String(RING * f);
-    $('ringTip').style.transform = `rotate(${(360 * (1 - f)).toFixed(1)}deg)`;
+    const q = Math.round(f * 2000) / 2000;
+    if (q === ringShown) return;
+    ringShown = q;
+    $('ringFill').style.strokeDashoffset = String(RING * q);
+    $('ringTip').style.transform = `rotate(${(360 * (1 - q)).toFixed(1)}deg)`;
   };
+  // The countdown loop runs every frame: write to the page only when a value actually changes.
+  const setText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  const setFlag = (el, name, on) => { if (el.classList.contains(name) !== on) el.classList.toggle(name, on); };
 
   function tick() {
     renderTodayBar();
     const closed = !!today?.winner && !rolling;
-    $('roller').classList.toggle('closed', closed);
+    const roller = $('roller');
+    setFlag(roller, 'closed', closed);
     if (closed) {
       const left = Math.max(0, today.resetAt - Date.now());
-      btn.disabled = true;
-      $('roller').classList.remove('ready', 'rolling');
-      label.textContent = shortUntil(left);
-      hint.textContent = 'next ticket';
+      if (!btn.disabled) btn.disabled = true;
+      setFlag(roller, 'ready', false);
+      setFlag(roller, 'rolling', false);
+      setText(label, shortUntil(left));
+      setText(hint, 'next ticket');
       setRing(Math.min(1, left / 86_400_000));
-      $('nextTicket').textContent = `Next golden ticket in ${clockUntil(left)}`;
+      setText($('nextTicket'), `Next golden ticket in ${clockUntil(left)}`);
       flipClock.set(left);
       if (left === 0 && !reopening) reopen();
       return;
     }
     const remaining = Math.max(0, readyAt - Date.now());
     const ready = remaining === 0 && !rolling;
-    btn.disabled = !ready;
-    $('roller').classList.toggle('ready', ready);
-    $('roller').classList.toggle('rolling', rolling);
+    if (btn.disabled !== !ready) btn.disabled = !ready;
+    setFlag(roller, 'ready', ready);
+    setFlag(roller, 'rolling', rolling);
     if (rolling) {
-      label.textContent = '…';
-      hint.textContent = 'rolling';
+      setText(label, '…');
+      setText(hint, 'rolling');
       setRing(0.72);
     } else if (remaining > 0) {
-      label.textContent = Math.ceil(remaining / 1000) + 's';
-      hint.textContent = 'next roll';
+      setText(label, Math.ceil(remaining / 1000) + 's');
+      setText(hint, 'next roll');
       setRing(Math.min(1, remaining / cooldownMs));
     } else {
-      label.textContent = 'ROLL';
-      hint.textContent = autoInput.checked ? 'auto' : 'ready';
+      setText(label, 'ROLL');
+      setText(hint, autoInput.checked ? 'auto' : 'ready');
       setRing(0);
       if (autoInput.checked && $('winOverlay').hidden) roll();
     }
@@ -2197,6 +2222,20 @@
     requestAnimationFrame(step);
   }
 
+  // ---- Title shine ------------------------------------------------------------
+  (() => {
+    const h1 = document.querySelector('h1');
+    if (!h1 || reducedMotion) return;
+    const sweep = () => {
+      if (!document.hidden) {
+        h1.animate([{ backgroundPosition: '0% 50%' }, { backgroundPosition: '100% 50%' }, { backgroundPosition: '0% 50%' }],
+          { duration: 2600, easing: 'ease-in-out' });
+      }
+      setTimeout(sweep, 11000);
+    };
+    setTimeout(sweep, 2500);
+  })();
+
   // ---- Today bar ---------------------------------------------------------
   let todayBarKey = '';
   function renderTodayBar() {
@@ -2258,12 +2297,15 @@
       h = innerHeight;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
-      const n = Math.round(Math.min(70, Math.max(24, (w * h) / 20000)));
+      const n = Math.round(Math.min(56, Math.max(22, (w * h) / 24000)));
       while (motes.length < n) motes.push(spawn(true));
       motes.length = n;
     }
+    let drawn = 0;
     function frame(t) {
       if (!running) return;
+      if (t - drawn < 31) { requestAnimationFrame(frame); return; } // about 30 frames a second is plenty
+      drawn = t;
       const dt = Math.min(0.05, (t - (last || t)) / 1000);
       last = t;
       tension += (target - tension) * Math.min(1, dt * 3);
@@ -2288,9 +2330,14 @@
       last = 0;
       if (on) requestAnimationFrame(frame);
     }
+    // Draw only while someone's looking: not in a hidden tab, and not while another window (a game,
+    // say) has the focus. The page itself keeps rolling either way.
+    const wanted = () => !document.hidden && document.hasFocus();
     resize();
     addEventListener('resize', resize);
-    document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
+    document.addEventListener('visibilitychange', () => setRunning(wanted()));
+    addEventListener('focus', () => setRunning(wanted()));
+    addEventListener('blur', () => setRunning(false));
     setRunning(!document.hidden);
     return { setTension(level) { target = Math.max(0, Math.min(4, level)) / 4; } };
   })();
@@ -2607,9 +2654,14 @@
       // The ticket
       const tx = 24, ty = 18, tw = W - 48, th = 238, mid = ty + th / 2;
       const paper = ctx.createLinearGradient(tx, ty, tx + tw, ty + th);
-      paper.addColorStop(0, '#2c1d12'); paper.addColorStop(1, '#1a110a');
+      paper.addColorStop(0, '#35220f'); paper.addColorStop(0.55, '#1d120a'); paper.addColorStop(1, '#261709');
       ctx.fillStyle = paper;
       ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 16); ctx.fill();
+      ctx.save();
+      ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 16); ctx.clip();
+      ctx.strokeStyle = 'rgba(242, 201, 76, .05)'; ctx.lineWidth = 1;
+      for (let r = 6; r < tw * 0.62; r += 7) { ctx.beginPath(); ctx.arc(W / 2, mid, r, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
       let glow = look.jackpot ? 1.7 : [0, 0.6, 0.85, 1, 1][heat] || (t.classList.contains('spinning') ? 0.3 : 0);
       if (heat >= 2 && !look.jackpot) glow *= 1 + 0.08 * Math.sin(now / (heat >= 3 ? 88 : 143));
       if (glow > 0) {
@@ -2629,19 +2681,73 @@
 
       ctx.font = `600 13px ${SANS}`; ctx.letterSpacing = '3px'; ctx.fillStyle = C.muted;
       ctx.textAlign = 'left'; ctx.fillText('ADMIT ONE', tx + 44, ty + 38);
+      ctx.font = '700 13px ui-monospace, "SF Mono", Menlo, Consolas, monospace'; ctx.letterSpacing = '2px'; ctx.fillStyle = 'rgba(242, 201, 76, .85)';
       ctx.textAlign = 'right'; ctx.fillText($('ticketNo').textContent.toUpperCase(), tx + tw - 44, ty + 38);
       ctx.letterSpacing = '0px';
 
-      drawReels(W / 2, ty + 52, 92, look);
+      // The slot window the reels turn in
+      const size = 92, reelTop = ty + 52, cellH = size * CELL;
+      const rowW = reels.reduce((sum, r) => sum + size * 0.66 + (r.sep ? size * 0.24 : 0), 0);
+      const sx = W / 2 - rowW / 2 - 16, sw = rowW + 32, sy = reelTop - 2, sh = cellH + 4;
+      const glass = ctx.createLinearGradient(0, sy, 0, sy + sh);
+      glass.addColorStop(0, '#0d0703'); glass.addColorStop(0.5, '#1a1009'); glass.addColorStop(1, '#0d0703');
+      ctx.fillStyle = glass;
+      ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 14); ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = look.jackpot ? 'rgba(255, 243, 196, .95)' : heat >= 3 ? 'rgba(242, 201, 76, .7)' : 'rgba(242, 201, 76, .3)';
+      ctx.stroke();
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(242, 201, 76, .14)';
+      ctx.beginPath(); ctx.roundRect(sx - 4.5, sy - 4.5, sw + 9, sh + 9, 17); ctx.stroke();
+      drawReels(W / 2, reelTop, size, look);
+      ctx.save();
+      ctx.beginPath(); ctx.roundRect(sx, sy, sw, sh, 14); ctx.clip();
+      const shade = ctx.createLinearGradient(0, sy, 0, sy + sh);
+      shade.addColorStop(0, 'rgba(0, 0, 0, .55)'); shade.addColorStop(0.24, 'rgba(0, 0, 0, 0)');
+      shade.addColorStop(0.76, 'rgba(0, 0, 0, 0)'); shade.addColorStop(1, 'rgba(0, 0, 0, .55)');
+      ctx.fillStyle = shade; ctx.fillRect(sx, sy, sw, sh);
+      const glare = ctx.createLinearGradient(sx, sy, sx + sw * 0.3, sy + sh);
+      glare.addColorStop(0, 'rgba(255, 255, 255, .09)'); glare.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = glare; ctx.fillRect(sx, sy, sw, sh);
+      ctx.restore();
 
       ctx.textAlign = 'center';
-      ctx.font = `500 16px ${SANS}`;
-      ctx.fillStyle = look.closed ? C.text : C.muted;
-      ctx.fillText(look.closed ? $('nextTicket').textContent : $('oddsMeta').textContent, W / 2, ty + 180);
       const verdict = $('verdict');
-      ctx.font = `600 19px ${SANS}`;
-      ctx.fillStyle = look.closed ? C.text : verdict.classList.contains('error') ? '#ff9b8a' : C.gold;
-      ctx.fillText(fit(verdict.textContent, tw - 90), W / 2, ty + 212);
+      if (look.closed) {
+        // Split-flap countdown, like the page
+        ctx.font = `700 11px ${SANS}`; ctx.letterSpacing = '3px'; ctx.fillStyle = C.muted;
+        ctx.fillText('NEXT GOLDEN TICKET IN', W / 2, ty + 172);
+        ctx.letterSpacing = '0px';
+        const time = ($('nextTicket').textContent.match(/(\d+):(\d\d):(\d\d)/) || []).slice(1);
+        const text = time.length ? `${time[0].padStart(2, '0')}:${time[1]}:${time[2]}` : '';
+        const cw = 20, ch = 28, gap = 4, colon = 10;
+        const width = [...text].reduce((sum, c) => sum + (c === ':' ? colon : cw) + gap, -gap);
+        let x = W / 2 - width / 2;
+        for (const c of text) {
+          if (c === ':') {
+            ctx.font = `800 18px ${SANS}`; ctx.fillStyle = 'rgba(242, 201, 76, .7)';
+            ctx.fillText(':', x + colon / 2, ty + 199);
+            x += colon + gap;
+            continue;
+          }
+          const card = ctx.createLinearGradient(0, ty + 180, 0, ty + 180 + ch);
+          card.addColorStop(0, '#2e1e12'); card.addColorStop(0.5, '#24170e'); card.addColorStop(0.5, '#1d130b'); card.addColorStop(1, '#1a110a');
+          ctx.fillStyle = card;
+          ctx.beginPath(); ctx.roundRect(x, ty + 180, cw, ch, 4); ctx.fill();
+          ctx.fillStyle = 'rgba(0, 0, 0, .55)'; ctx.fillRect(x, ty + 180 + ch / 2, cw, 1);
+          ctx.font = `800 20px ${SANS}`; ctx.fillStyle = C.gold1;
+          ctx.fillText(c, x + cw / 2, ty + 201);
+          x += cw + gap;
+        }
+        ctx.font = `600 17px ${SANS}`; ctx.fillStyle = C.text;
+        ctx.fillText(fit(verdict.textContent, tw - 90), W / 2, ty + 228);
+      } else {
+        ctx.font = `500 16px ${SANS}`;
+        ctx.fillStyle = C.muted;
+        ctx.fillText($('oddsMeta').textContent, W / 2, ty + 180);
+        ctx.font = `600 19px ${SANS}`;
+        ctx.fillStyle = verdict.classList.contains('error') ? '#ff9b8a' : C.gold;
+        ctx.fillText(fit(verdict.textContent, tw - 90), W / 2, ty + 212);
+      }
 
       if (!$('stamp').hidden) {
         ctx.save();
@@ -2671,12 +2777,21 @@
         ctx.beginPath(); ctx.arc(rx, ry, rr, a0, a0 + Math.PI * 2 * filled); ctx.stroke();
         ctx.lineCap = 'butt';
       }
-      ctx.textAlign = 'center'; ctx.fillStyle = C.text;
+      // The coin: gold when you can roll, dark while you wait
+      const live = !btn.disabled;
+      const coin = ctx.createRadialGradient(rx - 10, ry - 12, 2, rx, ry, rr - 8);
+      if (live) { coin.addColorStop(0, '#fff7d2'); coin.addColorStop(0.3, '#f6d469'); coin.addColorStop(0.7, '#dca828'); coin.addColorStop(1, '#a8730f'); }
+      else { coin.addColorStop(0, '#46321f'); coin.addColorStop(0.6, '#2c1d12'); coin.addColorStop(1, '#1d130b'); }
+      ctx.fillStyle = coin;
+      ctx.beginPath(); ctx.arc(rx, ry, rr - 9, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = live ? 'rgba(122, 82, 10, .55)' : 'rgba(242, 201, 76, .14)';
+      ctx.beginPath(); ctx.arc(rx, ry, rr - 14, 0, Math.PI * 2); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillStyle = live ? C.ink : C.text;
       const labelText = label.textContent;
-      ctx.font = `700 ${labelText.length > 5 ? 15 : 21}px ${SANS}`;
-      ctx.fillText(labelText, rx, ry + 4);
-      ctx.font = `600 11px ${SANS}`; ctx.fillStyle = C.muted;
-      ctx.fillText(hint.textContent, rx, ry + 21);
+      ctx.font = `800 ${labelText.length > 5 ? 13 : 18}px ${SANS}`;
+      ctx.fillText(labelText, rx, ry + 3);
+      ctx.font = `600 10px ${SANS}`; ctx.fillStyle = live ? 'rgba(58, 36, 5, .75)' : C.muted;
+      ctx.fillText(hint.textContent, rx, ry + 18);
 
       ctx.textAlign = 'left';
       ctx.font = `700 19px ${SANS}`;
