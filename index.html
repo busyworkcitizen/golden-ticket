@@ -12,17 +12,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #120a07;
-    --panel: #1f140d;
-    --line: rgba(242, 201, 76, .16);
+    --bg: #0e0704;
+    --panel: rgba(33, 21, 13, .9);
+    --panel-2: rgba(44, 29, 18, .9);
+    --line: rgba(242, 201, 76, .15);
+    --line-strong: rgba(242, 201, 76, .34);
     --text: #f6ead2;
     --muted: #b3a083;
+    --faint: #7d6a50;
     --gold-1: #fff3c4;
     --gold-2: #f2c94c;
     --gold-3: #c8901a;
     --ink: #3a2405;
+    --red: #ff8f6b;
+    --green: #7fe0a0;
     --gold: linear-gradient(135deg, var(--gold-1) 0%, var(--gold-2) 30%, var(--gold-3) 62%, var(--gold-2) 82%, var(--gold-1) 100%);
     --display: "Abril Fatface", Georgia, "Times New Roman", serif;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --spring: cubic-bezier(.3, 1.5, .5, 1);
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
@@ -31,45 +39,83 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(ellipse 90% 55% at 50% -12%, rgba(242, 201, 76, .17), transparent 70%),
-      radial-gradient(ellipse 70% 40% at 50% 112%, rgba(200, 144, 26, .10), transparent 70%),
+      radial-gradient(ellipse 80% 50% at 50% -8%, rgba(242, 201, 76, .17), transparent 70%),
+      radial-gradient(ellipse 55% 40% at 8% 108%, rgba(200, 110, 26, .11), transparent 70%),
+      radial-gradient(ellipse 55% 40% at 94% 104%, rgba(200, 144, 26, .09), transparent 70%),
       var(--bg);
+    background-attachment: fixed;
     color: var(--text);
-    font: 16px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 16px/1.5 var(--sans);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
-  main {
-    max-width: 560px;
-    margin: 0 auto;
-    padding: 44px 16px 56px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
+  /* Film grain and a soft vignette over everything, under the content */
+  body::before, body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  body::before {
+    opacity: .08; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  body::after { background: radial-gradient(ellipse 120% 90% at 50% 38%, transparent 55%, rgba(0, 0, 0, .55)); }
+  #dust { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+  /* Layout: one column on phones and tablets, the game and a side column on wide screens */
+  .app {
+    position: relative; z-index: 1;
+    max-width: 1180px; margin: 0 auto; padding: 36px 16px 56px;
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 26px; justify-items: center;
+  }
+  .stage, .side { width: 100%; max-width: 560px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  @media (min-width: 1040px) {
+    .app { grid-template-columns: minmax(0, 620px) 380px; justify-content: center; align-items: start; gap: 48px; padding-top: 44px; }
+    .stage { max-width: 620px; }
+    .side { max-width: 380px; padding-top: 6px; }
   }
 
   /* Header */
-  header { text-align: center; }
+  .hero { text-align: center; }
   .eyebrow {
-    font-size: 12px; font-weight: 600; letter-spacing: .32em; text-transform: uppercase; color: var(--gold-2);
+    display: inline-flex; align-items: center; gap: 12px;
+    font-size: 12px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: var(--gold-2);
   }
+  .eyebrow::before, .eyebrow::after { content: ""; width: 36px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-2)); }
+  .eyebrow::after { transform: scaleX(-1); }
   h1 {
     font-family: var(--display); font-weight: 400;
-    font-size: clamp(48px, 13vw, 76px); line-height: 1; margin: 10px 0 14px;
-    background: var(--gold); -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 2px 14px rgba(242, 201, 76, .22));
+    font-size: clamp(50px, 12.5vw, 86px); line-height: 1; margin: 12px 0 14px;
+    background: linear-gradient(100deg, #e2a92f 0%, #fff3c4 16%, #f2c94c 30%, #b37a0c 48%, #f2c94c 62%, #fff8dc 72%, #d39a22 88%, #f2c94c 100%);
+    background-size: 240% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(80, 48, 4, .6)) drop-shadow(0 10px 26px rgba(242, 201, 76, .24));
+    animation: titleshine 8s ease-in-out infinite;
   }
-  .sub { color: var(--muted); margin: 0 auto; max-width: 38ch; }
+  @keyframes titleshine { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  .sub { color: var(--muted); margin: 0 auto; max-width: 40ch; }
   .sub strong { color: var(--text); font-weight: 600; }
 
-  /* Ticket display */
+  /* Today's ticket, live */
+  .today {
+    width: 100%; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 10px;
+    padding: 9px 18px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line);
+    font-size: 14px; text-align: center;
+  }
+  .today-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); flex: none; animation: live 2s ease-out infinite; }
+  .today[data-state="closed"] .today-dot { background: var(--red); animation: none; box-shadow: 0 0 10px rgba(255, 143, 107, .7); }
+  .today[data-state="mine"] .today-dot { background: var(--gold-2); animation: none; box-shadow: 0 0 10px rgba(242, 201, 76, .9); }
+  @keyframes live { 0% { box-shadow: 0 0 0 0 rgba(127, 224, 160, .55); } 70%, 100% { box-shadow: 0 0 0 9px rgba(127, 224, 160, 0); } }
+  .today-text { font-weight: 600; }
+  .today-meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* The ticket */
+  .ticket-wrap { width: 100%; perspective: 1100px; filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .45)); }
   .ticket {
-    --notch: 16px;
+    --notch: 16px; --mx: 50%; --my: 30%;
     position: relative; width: 100%;
-    padding: 22px 40px 22px;
-    background: linear-gradient(160deg, #2c1d12, #1a110a);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    background:
+      repeating-radial-gradient(circle at 50% 52%, rgba(242, 201, 76, .045) 0 1px, transparent 1px 7px),
+      repeating-radial-gradient(circle at 44% 48%, rgba(242, 201, 76, .03) 0 1px, transparent 1px 9px),
+      linear-gradient(160deg, #35220f, #1d120a 55%, #261709);
+    border: 1px solid var(--line); border-radius: 16px;
     -webkit-mask:
       radial-gradient(circle at 0 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) left / 51% 100% no-repeat,
       radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
@@ -89,23 +135,67 @@
   .ticket[data-heat="2"]::after { opacity: .85; animation: heartbeat .9s ease-in-out infinite; }
   .ticket[data-heat="3"]::after, .ticket[data-heat="4"]::after { opacity: 1; animation: heartbeat .55s ease-in-out infinite; }
   .ticket[data-heat="3"], .ticket[data-heat="4"] { border-color: rgba(242, 201, 76, .5); }
-  .ticket.jackpot { border-color: rgba(242, 201, 76, .8); }
+  .ticket.jackpot { border-color: rgba(242, 201, 76, .85); }
   .ticket.jackpot::after {
     opacity: 1; animation: none;
     background: radial-gradient(ellipse 85% 75% at 50% 52%, rgba(255, 228, 140, .6), rgba(242, 201, 76, .14) 72%);
   }
   @keyframes heartbeat { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.07); } }
-  .ticket::before {
-    content: ""; position: absolute; inset: 8px 28px; pointer-events: none;
-    border: 1px dashed rgba(242, 201, 76, .2); border-radius: 8px;
+  .ticket-face { padding: 20px 26px 20px 40px; min-width: 0; }
+  .ticket-face::before {
+    content: ""; position: absolute; inset: 9px 12px 9px 28px; pointer-events: none;
+    border: 1px dashed rgba(242, 201, 76, .2); border-radius: 9px;
   }
   .ticket-top {
     display: flex; justify-content: space-between; gap: 12px;
     font-size: 11px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--muted);
   }
+  .ticket-top .serial { font-family: var(--mono); letter-spacing: .14em; color: var(--gold-2); opacity: .8; }
+  .ticket-stub {
+    width: 52px; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle, rgba(242, 201, 76, .35) 1.2px, transparent 1.6px) left center / 4px 9px repeat-y;
+  }
+  .ticket-stub span {
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+    font-size: 10px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: rgba(242, 201, 76, .55);
+  }
+  .ticket > .sheen {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; mix-blend-mode: soft-light;
+    background:
+      radial-gradient(circle at var(--mx) var(--my), rgba(255, 240, 200, .5), transparent 42%),
+      linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .1) 46%, transparent 62%);
+    transition: opacity .5s ease;
+  }
+  .ticket.lit > .sheen { opacity: 1; }
+
+  /* The slot window the reels spin in */
+  .slot {
+    position: relative; width: fit-content; max-width: 100%; margin: 12px auto 8px; padding: 0 14px; border-radius: 14px;
+    background: linear-gradient(180deg, #0d0703, #1a1009 50%, #0d0703);
+    box-shadow:
+      inset 0 3px 10px rgba(0, 0, 0, .8), inset 0 -3px 8px rgba(0, 0, 0, .6),
+      0 0 0 1px rgba(242, 201, 76, .28), 0 0 0 4px rgba(14, 8, 4, .7), 0 0 0 5px rgba(242, 201, 76, .14);
+    transition: box-shadow .4s ease;
+  }
+  .slot-glass {
+    position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, .55), transparent 24%, transparent 76%, rgba(0, 0, 0, .55)),
+      linear-gradient(168deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, 0) 40%);
+  }
+  .ticket[data-heat="3"] .slot, .ticket[data-heat="4"] .slot {
+    box-shadow:
+      inset 0 3px 10px rgba(0, 0, 0, .8), inset 0 -3px 8px rgba(0, 0, 0, .6),
+      0 0 0 1px rgba(242, 201, 76, .6), 0 0 0 4px rgba(14, 8, 4, .7), 0 0 0 5px rgba(242, 201, 76, .35), 0 0 26px rgba(242, 201, 76, .35);
+  }
+  .ticket.jackpot .slot {
+    box-shadow:
+      inset 0 3px 10px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 243, 196, .9), 0 0 0 4px rgba(14, 8, 4, .5),
+      0 0 0 5px rgba(242, 201, 76, .7), 0 0 40px rgba(242, 201, 76, .6);
+  }
   .roll-number {
-    font-family: var(--display); font-size: clamp(60px, 18vw, 112px); line-height: 1.1;
-    display: flex; justify-content: center; height: 1.1em; margin: 8px 0 0; color: var(--text);
+    font-family: var(--display); font-size: clamp(54px, 16vw, 104px); line-height: 1.1;
+    display: flex; justify-content: center; height: 1.1em; color: var(--text);
   }
   .reel { position: relative; width: .66em; height: 1.1em; transition: opacity .35s ease, color .3s ease, filter .3s ease; }
   .reel-window {
@@ -124,99 +214,147 @@
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .roll-meta { text-align: center; color: var(--muted); font-size: 14px; margin: 0; }
   .roll-meta.next { color: var(--text); font-variant-numeric: tabular-nums; }
+  .verdict { text-align: center; margin: 8px 0 0; min-height: 1.5em; font-weight: 600; color: var(--gold-2); }
+  .verdict.error { color: #ff9b8a; }
 
   /* Today's ticket is taken: stamp the ticket and count down to midnight */
   .ticket > .stamp {
     position: absolute; left: 50%; top: 46%; z-index: 3; pointer-events: none;
     transform: translate(-50%, -50%) rotate(-11deg);
-    font: 800 clamp(20px, 6vw, 32px)/1 Inter, system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase;
-    color: #ff8f6b; border: 3px solid currentColor; border-radius: 10px; padding: 8px 12px 8px 17px;
-    background: rgba(18, 10, 7, .6);
+    font: 800 clamp(20px, 6vw, 32px)/1 var(--sans); letter-spacing: .22em; text-transform: uppercase;
+    color: var(--red); border: 3px solid currentColor; border-radius: 10px; padding: 8px 12px 8px 17px;
+    background: rgba(18, 10, 7, .62);
   }
   .ticket.mine > .stamp { color: var(--gold-2); }
   .ticket.closed:not(.mine) .reel { opacity: .28; }
   .ticket.closed .verdict { color: var(--text); }
-  .roller.closed .roll-btn { font-size: 17px; letter-spacing: .02em; }
-  .verdict {
-    text-align: center; margin: 10px 0 0; min-height: 1.5em; font-weight: 600; color: var(--gold-2);
-  }
-  .verdict.error { color: #ff9b8a; }
 
-  /* Roll button + countdown ring */
-  .roller { position: relative; width: 152px; height: 152px; }
-  .ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+  /* Roll button: a gold coin in a countdown ring */
+  .roller { --size: 160px; position: relative; width: var(--size); height: var(--size); }
+  .ring { position: absolute; inset: 0; transform: rotate(-90deg); overflow: visible; }
   .ring circle { fill: none; stroke-width: 6; }
   .ring-track { stroke: rgba(242, 201, 76, .12); }
-  .ring-fill { stroke: var(--gold-2); stroke-linecap: round; stroke-dasharray: 339.292; stroke-dashoffset: 0; }
+  .ring-fill { stroke: var(--gold-2); stroke-linecap: round; stroke-dasharray: 339.292; stroke-dashoffset: 0; filter: drop-shadow(0 0 3px rgba(242, 201, 76, .5)); }
+  .ring-tip {
+    position: absolute; left: 50%; top: calc(var(--size) * .05 - 5px); width: 10px; height: 10px; margin-left: -5px;
+    border-radius: 50%; background: var(--gold-1); box-shadow: 0 0 8px 3px rgba(242, 201, 76, .75);
+    transform-origin: 5px calc(var(--size) * .45 + 5px); pointer-events: none; transition: opacity .2s;
+  }
+  .roller.rolling .ring-tip, .roller.closed .ring-tip { opacity: 0; }
   .roll-btn {
-    position: absolute; inset: 15px; border: 0; border-radius: 50%;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    background: var(--gold); color: var(--ink);
-    font: 700 24px/1 Inter, system-ui, sans-serif; letter-spacing: .12em;
-    box-shadow: 0 10px 32px rgba(242, 201, 76, .28), inset 0 -4px 0 rgba(0, 0, 0, .18), inset 0 2px 0 rgba(255, 255, 255, .55);
-    cursor: pointer; transition: transform .12s ease, box-shadow .2s;
+    position: absolute; inset: 15px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: var(--ink);
+    background: radial-gradient(circle at 34% 26%, #fff7d2 0%, #f6d469 20%, #dca828 48%, #a8730f 76%, #7a520a 100%);
+    box-shadow:
+      0 6px 0 #6b4708, 0 12px 22px rgba(0, 0, 0, .5), 0 0 44px rgba(242, 201, 76, .28),
+      inset 0 2px 1px rgba(255, 255, 255, .65), inset 0 -4px 7px rgba(90, 55, 5, .55);
+    transition: transform .12s ease, box-shadow .12s ease, filter .2s;
   }
-  .roll-btn small { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: .7; }
-  .roll-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); }
-  .roll-btn:active:not(:disabled) { transform: scale(.97); }
-  .roll-btn:focus-visible { outline: 3px solid var(--gold-1); outline-offset: 4px; }
+  .coin-face {
+    position: absolute; inset: 9px; border-radius: 50%; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    box-shadow: inset 0 0 0 2px rgba(122, 82, 10, .5), inset 0 0 0 4px rgba(255, 240, 190, .28);
+    font: 800 25px/1 var(--sans); letter-spacing: .12em; text-shadow: 0 1px 0 rgba(255, 245, 210, .6);
+  }
+  .coin-face::after {
+    content: ""; position: absolute; inset: -30%; pointer-events: none;
+    background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .6) 50%, transparent 58%);
+    transform: translateX(-130%);
+  }
+  .roller.ready .coin-face::after { animation: coinshine 3.4s ease-in-out infinite; }
+  @keyframes coinshine { 0% { transform: translateX(-130%); } 35%, 100% { transform: translateX(130%); } }
+  .roll-btn small { font-size: 11px; font-weight: 700; letter-spacing: .06em; opacity: .72; text-shadow: none; }
+  .roll-btn:hover:not(:disabled) {
+    transform: translateY(-2px); filter: brightness(1.05);
+    box-shadow: 0 8px 0 #6b4708, 0 16px 26px rgba(0, 0, 0, .5), 0 0 56px rgba(242, 201, 76, .4),
+      inset 0 2px 1px rgba(255, 255, 255, .65), inset 0 -4px 7px rgba(90, 55, 5, .55);
+  }
+  .roll-btn:active:not(:disabled) {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 #6b4708, 0 4px 10px rgba(0, 0, 0, .45), 0 0 30px rgba(242, 201, 76, .25),
+      inset 0 2px 1px rgba(255, 255, 255, .5), inset 0 -2px 5px rgba(90, 55, 5, .5);
+  }
+  .roll-btn:focus-visible { outline: 3px solid var(--gold-1); outline-offset: 6px; }
   .roll-btn:disabled {
-    background: #2e2016; color: var(--text); cursor: default;
-    box-shadow: inset 0 0 0 1px var(--line);
+    cursor: default; color: var(--text);
+    background: radial-gradient(circle at 34% 26%, #46321f 0%, #2c1d12 55%, #1d130b 100%);
+    box-shadow: 0 5px 0 #120a06, 0 10px 18px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 0 0 1px var(--line);
   }
+  .roll-btn:disabled .coin-face { box-shadow: inset 0 0 0 2px rgba(242, 201, 76, .12); text-shadow: none; }
   .roll-btn:disabled small { color: var(--muted); opacity: 1; }
   .roller.ready .ring-fill { animation: pulse 1.6s ease-in-out infinite; }
   .roller.rolling .ring { animation: ringspin .8s linear infinite; }
+  .roller.closed .coin-face { font-size: 18px; letter-spacing: .02em; }
   @keyframes ringspin { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
   @keyframes pulse { 50% { stroke: var(--gold-1); } }
 
   /* Controls */
-  .controls { width: 100%; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-  .field { flex: 1 1 220px; display: flex; flex-direction: column; gap: 6px; }
+  .dock { width: 100%; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+  .field { display: flex; flex-direction: column; gap: 6px; }
   .field span, .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .field input {
-    font: inherit; color: var(--text); background: var(--panel);
+    font: inherit; color: var(--text); background: rgba(14, 8, 4, .7);
     border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; width: 100%;
+    transition: border-color .2s, box-shadow .2s;
   }
-  .field input::placeholder { color: #7d6a50; }
+  .field input::placeholder { color: var(--faint); }
   .field input:focus { outline: none; border-color: var(--gold-2); box-shadow: 0 0 0 3px rgba(242, 201, 76, .15); }
+  .switches { display: flex; flex-wrap: wrap; gap: 8px; }
   .toggle {
-    display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
-    font-size: 14px; font-weight: 500;
+    flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; user-select: none;
+    background: rgba(14, 8, 4, .55); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+    font-size: 14px; font-weight: 500; color: var(--text); transition: border-color .2s, background .2s;
   }
+  .toggle:hover { border-color: rgba(242, 201, 76, .3); }
+  .toggle:has(input:checked) { border-color: rgba(242, 201, 76, .45); background: rgba(242, 201, 76, .07); }
   .toggle input { position: absolute; opacity: 0; pointer-events: none; }
-  .switch { width: 36px; height: 20px; border-radius: 999px; background: #3a2a1c; position: relative; transition: background .2s; flex: none; }
+  .switch { width: 38px; height: 22px; border-radius: 999px; background: #3a2a1c; position: relative; transition: background .25s; flex: none; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .5); }
   .switch::after {
-    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
-    background: var(--muted); transition: transform .2s, background .2s;
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--muted); transition: transform .35s var(--spring), background .25s; box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
   }
-  .toggle input:checked + .switch { background: var(--gold-3); }
+  .toggle input:checked + .switch { background: linear-gradient(90deg, var(--gold-3), var(--gold-2)); }
   .toggle input:checked + .switch::after { transform: translateX(16px); background: var(--gold-1); }
   .toggle input:focus-visible + .switch { outline: 2px solid var(--gold-1); outline-offset: 2px; }
+  .pop-btn { font: 500 14px var(--sans); }
 
   /* Stats + panels */
   .stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 12px; text-align: center; min-width: 0; }
-  .stat b { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat {
+    position: relative; overflow: hidden; min-width: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 10px 13px; text-align: center;
+    box-shadow: inset 0 1px 0 rgba(255, 240, 200, .04);
+  }
+  .stat svg { display: block; width: 20px; height: 20px; margin: 0 auto 6px; color: var(--gold-2); opacity: .85; }
+  .stat b { display: block; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
   .stat span { font-size: 12px; color: var(--muted); }
-  .panel { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .panel h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
-  .count { background: var(--gold); color: var(--ink); border-radius: 999px; padding: 1px 9px; font-size: 12px; letter-spacing: 0; }
+  .meter { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(242, 201, 76, .08); }
+  .meter i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .9s var(--spring); }
+  .panel {
+    width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 240, 200, .04);
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .panel h2 svg { width: 16px; height: 16px; color: var(--gold-2); flex: none; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 13px; font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 999px; background: #2a1c12; color: var(--muted); }
-  .chip.best { color: var(--gold-2); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .35); }
-  .empty { margin: 0; color: #8a7659; font-size: 14px; }
+  .chip {
+    --h: 0;
+    font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 4px 11px; border-radius: 999px;
+    background: color-mix(in srgb, #f2c94c calc(var(--h) * 30%), #2a1c12);
+    color: color-mix(in srgb, #fff3c4 calc(var(--h) * 100%), #a8957a);
+  }
+  .chip.best { box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .6); }
+  .empty { margin: 0; color: var(--faint); font-size: 14px; }
   .winners { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .winners li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; }
   .winners li span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .winners li span:last-child { color: var(--muted); flex: none; }
+  .winners li span.code { font: 700 14px var(--mono); letter-spacing: .04em; color: var(--gold-2); }
   .board-head { justify-content: space-between; }
-  .board-head .found { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 13px; }
+  .board-head .found { margin-left: auto; font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 13px; }
   .board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .board li {
     display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto auto; align-items: baseline; gap: 12px;
-    padding: 8px 10px; border-radius: 8px; font-size: 14px;
+    padding: 8px 10px; border-radius: 10px; font-size: 14px;
   }
   .board li.top { background: rgba(242, 201, 76, .06); }
   .board li.you { background: rgba(242, 201, 76, .1); box-shadow: inset 0 0 0 1px rgba(242, 201, 76, .55); }
@@ -231,8 +369,7 @@
     .board li { grid-template-columns: 2em minmax(0, 1fr) auto; }
     .board .when { display: none; }
   }
-  .winners li span.code { font: 700 14px ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .04em; color: var(--gold-2); }
-  footer { color: #8a7659; font-size: 13px; text-align: center; max-width: 46ch; }
+  footer { color: var(--faint); font-size: 13px; text-align: center; max-width: 46ch; }
 
   /* Win overlay */
   .overlay {
@@ -242,7 +379,6 @@
     background: rgba(10, 6, 3, .86); backdrop-filter: blur(6px);
     animation: fade .4s ease;
   }
-  .overlay[hidden] { display: none; }
   @keyframes fade { from { opacity: 0; } }
   #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   .golden {
@@ -259,9 +395,7 @@
       radial-gradient(circle at 100% 50%, #0000 var(--notch), #000 calc(var(--notch) + .5px)) right / 51% 100% no-repeat;
     animation: rise .7s cubic-bezier(.2, .9, .3, 1.2), shimmer 4s linear infinite;
   }
-  .golden::before {
-    content: ""; position: absolute; inset: 9px 30px; border: 1.5px dashed rgba(58, 36, 5, .35); border-radius: 8px; pointer-events: none;
-  }
+  .golden::before { content: ""; position: absolute; inset: 9px 30px; border: 1.5px dashed rgba(58, 36, 5, .35); border-radius: 8px; pointer-events: none; }
   .golden::after {
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .55) 50%, transparent 65%);
@@ -274,18 +408,17 @@
   .golden h2 { font-family: var(--display); font-weight: 400; font-size: clamp(38px, 11vw, 54px); line-height: 1.05; margin: 12px 0 6px; }
   .golden-name { margin: 0 0 16px; }
   .golden-code {
-    font: 700 clamp(18px, 5.4vw, 24px)/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .08em;
+    font: 700 clamp(18px, 5.4vw, 24px)/1 var(--mono); letter-spacing: .08em;
     background: rgba(58, 36, 5, .1); border: 1px solid rgba(58, 36, 5, .25); border-radius: 8px; padding: 12px 10px;
   }
   .golden-fine { margin: 12px 0 0; font-size: 12px; font-weight: 600; letter-spacing: .06em; opacity: .75; }
   .overlay-note { max-width: 40ch; margin: 0; color: var(--text); position: relative; }
   .ghost-btn {
-    position: relative; font: 600 15px Inter, system-ui, sans-serif; color: var(--text);
+    position: relative; font: 600 15px var(--sans); color: var(--text);
     background: transparent; border: 1px solid rgba(242, 201, 76, .4); border-radius: 999px; padding: 10px 22px; cursor: pointer;
+    transition: background .2s;
   }
   .ghost-btn:hover { background: rgba(242, 201, 76, .1); }
-  .pop-btn { color: var(--text); font: 500 14px Inter, system-ui, sans-serif; }
-  .pop-btn:hover { border-color: rgba(242, 201, 76, .45); }
   .popped { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
   .popped p { margin: 0; color: var(--muted); }
 
@@ -294,19 +427,24 @@
     min-height: 100vh; padding: 10px; display: flex; flex-direction: column; justify-content: center;
     overflow: hidden; -webkit-user-select: none; user-select: none;
   }
-  .widget-wrap { display: flex; flex-direction: column; gap: 10px; }
-  .widget .ticket { --notch: 11px; padding: 9px 24px 10px; }
-  .widget .ticket::before { inset: 5px 16px; }
+  body.widget::after { display: none; }
+  .widget-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; }
+  .widget .ticket { --notch: 11px; grid-template-columns: minmax(0, 1fr); }
+  .widget .ticket-face { padding: 8px 22px 9px; }
+  .widget .ticket-face::before { inset: 5px 14px; }
+  .widget .ticket-stub, .widget .sheen { display: none; }
   .widget .ticket-top { font-size: 9px; }
-  .widget .roll-number { font-size: clamp(30px, 14vw, 72px); margin-top: 2px; }
+  .widget .slot { margin: 5px auto 4px; padding: 0 8px; border-radius: 10px; }
+  .widget .roll-number { font-size: clamp(28px, 12vw, 64px); }
   .widget .roll-meta { font-size: 11px; }
   .widget .verdict { font-size: 12px; margin-top: 3px; }
   .widget .ticket > .stamp { font-size: clamp(14px, 5vw, 26px); border-width: 2px; padding: 5px 8px 5px 12px; }
   .widget-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
-  .widget .roller { width: 92px; height: 92px; flex: none; }
-  .widget .roll-btn { inset: 9px; font-size: 16px; }
+  .widget .roller { --size: 92px; flex: none; }
+  .widget .roll-btn { inset: 9px; }
+  .widget .coin-face { inset: 5px; font-size: 15px; }
   .widget .roll-btn small { font-size: 9px; }
-  .widget .roller.closed .roll-btn { font-size: 13px; }
+  .widget .roller.closed .coin-face { font-size: 12px; }
   .widget-side { display: flex; flex-direction: column; gap: 6px; }
   .widget .toggle { padding: 6px 10px; font-size: 13px; }
   .widget .overlay { padding: 10px; gap: 8px; }
@@ -319,11 +457,16 @@
   .widget .overlay-note { font-size: 12px; }
   .widget .ghost-btn { padding: 6px 14px; font-size: 13px; }
 
+  @media (max-width: 560px) {
+    .ticket { grid-template-columns: minmax(0, 1fr); }
+    .ticket-stub { display: none; }
+    .ticket-face { padding: 18px 30px; }
+    .ticket-face::before { inset: 8px 20px; }
+  }
   @media (max-width: 420px) {
-    main { padding-top: 32px; gap: 24px; }
-    .ticket { padding: 18px 32px; }
-    .ticket::before { inset: 8px 22px; }
-    .stat b { font-size: 19px; }
+    .app { padding-top: 28px; gap: 22px; }
+    .stat b { font-size: 20px; }
+    .roller { --size: 150px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -331,86 +474,121 @@
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <div class="eyebrow">★ 1 in <span data-odds>10,000</span> ★</div>
-    <h1>Golden Ticket</h1>
-    <p class="sub">Everyone gets <strong>one roll every <span data-cooldown>5</span> seconds</strong>, and there's only <strong>one golden ticket a day</strong>. Roll a perfect <strong data-odds>10,000</strong> before anyone else does.</p>
-  </header>
+<canvas id="dust" aria-hidden="true"></canvas>
+<main class="app">
+  <div class="stage">
+    <header class="hero">
+      <div class="eyebrow">1 in <span data-odds>10,000</span></div>
+      <h1>Golden Ticket</h1>
+      <p class="sub">Everyone gets <strong>one roll every <span data-cooldown>5</span> seconds</strong>, and there's only <strong>one golden ticket a day</strong>. Roll a perfect <strong data-odds>10,000</strong> before anyone else does.</p>
+    </header>
 
-  <section class="panel popped" id="popped" hidden>
-    <p id="popText">Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.</p>
-    <button class="ghost-btn" id="popIn" type="button">Bring it back</button>
-  </section>
+    <div class="today" id="todayBar" data-state="open">
+      <span class="today-dot" aria-hidden="true"></span>
+      <span class="today-text" id="todayText">Today's golden ticket is still out there</span>
+      <span class="today-meta" id="todayMeta"></span>
+    </div>
 
-  <section class="ticket" id="ticket" aria-label="Your roll">
-    <div class="ticket-top"><span>Admit one</span><span id="ticketNo">No. 0000</span></div>
-    <div class="roll-number" id="rollNumber" aria-hidden="true"></div>
-    <span class="sr-only" id="rollSr" aria-live="polite"></span>
-    <p class="roll-meta" id="oddsMeta">out of <span data-odds>10,000</span></p>
-    <p class="roll-meta next" id="nextTicket" hidden></p>
-    <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
-    <div class="stamp" id="stamp" hidden>Claimed</div>
-  </section>
+    <section class="panel popped" id="popped" hidden>
+      <p id="popText">Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.</p>
+      <button class="ghost-btn" id="popIn" type="button">Bring it back</button>
+    </section>
 
-  <div class="roller" id="roller">
-    <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ring-track" cx="60" cy="60" r="54"/>
-      <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="54"/>
-    </svg>
-    <button class="roll-btn" id="rollBtn" type="button" disabled>
-      <span id="rollLabel">ROLL</span>
-      <small id="rollHint">loading</small>
-    </button>
+    <div class="ticket-wrap">
+      <section class="ticket" id="ticket" aria-label="Your roll">
+        <div class="ticket-face">
+          <div class="ticket-top"><span>Admit one</span><span class="serial" id="ticketNo">No. 0000</span></div>
+          <div class="slot">
+            <div class="roll-number" id="rollNumber" aria-hidden="true"></div>
+            <div class="slot-glass" aria-hidden="true"></div>
+          </div>
+          <span class="sr-only" id="rollSr" aria-live="polite"></span>
+          <p class="roll-meta" id="oddsMeta">out of <span data-odds>10,000</span></p>
+          <p class="roll-meta next" id="nextTicket" hidden></p>
+          <p class="verdict" id="verdict" aria-live="polite">Press roll to try your luck.</p>
+        </div>
+        <div class="ticket-stub" aria-hidden="true"><span>Golden Ticket · Admit One</span></div>
+        <div class="stamp" id="stamp" hidden>Claimed</div>
+        <div class="sheen" aria-hidden="true"></div>
+      </section>
+    </div>
+
+    <div class="roller" id="roller">
+      <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring-track" cx="60" cy="60" r="54"/>
+        <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="54"/>
+      </svg>
+      <span class="ring-tip" id="ringTip" aria-hidden="true"></span>
+      <button class="roll-btn" id="rollBtn" type="button" disabled>
+        <span class="coin-face">
+          <span id="rollLabel">ROLL</span>
+          <small id="rollHint">loading</small>
+        </span>
+      </button>
+    </div>
+
+    <div class="dock">
+      <label class="field">
+        <span>Your name</span>
+        <input id="name" maxlength="40" placeholder="So we know who won" autocomplete="nickname">
+      </label>
+      <div class="switches">
+        <label class="toggle" id="autoToggle">
+          <input type="checkbox" id="auto">
+          <span class="switch" aria-hidden="true"></span>
+          <span>Auto-roll</span>
+        </label>
+        <label class="toggle" id="soundToggle">
+          <input type="checkbox" id="sound">
+          <span class="switch" aria-hidden="true"></span>
+          <span>Sound</span>
+        </label>
+        <label class="toggle" id="hapticsToggle" hidden>
+          <input type="checkbox" id="haptics">
+          <span class="switch" aria-hidden="true"></span>
+          <span>Haptics</span>
+        </label>
+        <button class="toggle pop-btn" id="popOut" type="button" hidden title="Open a small always-on-top window you can keep over your games">⧉ Mini widget</button>
+      </div>
+    </div>
   </div>
 
-  <div class="controls">
-    <label class="field">
-      <span>Your name</span>
-      <input id="name" maxlength="40" placeholder="So we know who won" autocomplete="nickname">
-    </label>
-    <label class="toggle" id="autoToggle">
-      <input type="checkbox" id="auto">
-      <span class="switch" aria-hidden="true"></span>
-      <span>Auto-roll</span>
-    </label>
-    <label class="toggle" id="soundToggle">
-      <input type="checkbox" id="sound">
-      <span class="switch" aria-hidden="true"></span>
-      <span>Sound</span>
-    </label>
-    <label class="toggle" id="hapticsToggle" hidden>
-      <input type="checkbox" id="haptics">
-      <span class="switch" aria-hidden="true"></span>
-      <span>Haptics</span>
-    </label>
-    <button class="toggle pop-btn" id="popOut" type="button" hidden title="Open a small always-on-top window you can keep over your games">⧉ Mini widget</button>
-  </div>
+  <aside class="side">
+    <section class="stats" aria-label="Stats">
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg>
+        <b id="myRolls">0</b><span>Your rolls</span>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+        <b id="myBest">—</b><span>Your best</span>
+        <span class="meter" aria-hidden="true"><i id="bestMeter"></i></span>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 0 0 4v3a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-3a2 2 0 0 1 0-4v-3A1.5 1.5 0 0 0 19 4H5a1.5 1.5 0 0 0-1.5 1.5z"/><path d="M14.5 4v13" stroke-dasharray="2 2.2"/></svg>
+        <b id="stat3">0</b><span id="stat3Label">Tickets won</span>
+      </div>
+    </section>
 
-  <section class="stats" aria-label="Stats">
-    <div class="stat"><b id="myRolls">0</b><span>Your rolls</span></div>
-    <div class="stat"><b id="myBest">—</b><span>Your best</span></div>
-    <div class="stat"><b id="stat3">0</b><span id="stat3Label">Tickets won</span></div>
-  </section>
+    <section class="panel">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 19V11M10 19V5M16 19v-6M22 19H2"/></svg>Your last rolls</h2>
+      <div class="chips" id="recent"></div>
+      <p class="empty" id="recentEmpty">Nothing yet. Your rolls will show up here.</p>
+    </section>
 
-  <section class="panel">
-    <h2>Your last rolls</h2>
-    <div class="chips" id="recent"></div>
-    <p class="empty" id="recentEmpty">Nothing yet. Your rolls will show up here.</p>
-  </section>
+    <section class="panel" id="ticketsPanel" hidden>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5a2 2 0 0 0 0 4v3a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-3a2 2 0 0 1 0-4v-3A1.5 1.5 0 0 0 19 4H5a1.5 1.5 0 0 0-1.5 1.5z"/></svg>Your golden tickets</h2>
+      <ol class="winners" id="myTickets"></ol>
+    </section>
 
-  <section class="panel" id="ticketsPanel" hidden>
-    <h2>Your golden tickets</h2>
-    <ol class="winners" id="myTickets"></ol>
-  </section>
+    <section class="panel" id="hallPanel" hidden>
+      <h2 class="board-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v3M8.5 20h7"/></svg>Winners leaderboard <span class="found" id="winnerCount"></span></h2>
+      <ol class="board" id="board"></ol>
+      <p class="empty" id="boardEmpty">No one has found a golden ticket yet. The first one takes the top spot.</p>
+    </section>
 
-  <section class="panel" id="hallPanel" hidden>
-    <h2 class="board-head">Winners leaderboard <span class="found" id="winnerCount"></span></h2>
-    <ol class="board" id="board"></ol>
-    <p class="empty" id="boardEmpty">No one has found a golden ticket yet. The first one takes the top spot.</p>
-  </section>
-
-  <footer id="oddsNote">Every roll is a fresh 1 in 10,000 chance.</footer>
+    <footer id="oddsNote">Every roll is a fresh 1 in 10,000 chance.</footer>
+  </aside>
 </main>
 
 <div class="overlay" id="winOverlay" hidden role="dialog" aria-modal="true" aria-labelledby="winTitle">
@@ -595,10 +773,12 @@
   function renderMe() {
     $('myRolls').textContent = fmt(me.rolls);
     $('myBest').textContent = me.best ? fmt(me.best) : '—';
+    $('bestMeter').style.width = `${Math.min(100, (me.best / odds) * 100).toFixed(1)}%`;
     $('ticketNo').textContent = `No. ${String(me.rolls).padStart(4, '0')}`;
     $('recent').replaceChildren(...me.recent.map((r) => {
       const chip = document.createElement('span');
       chip.className = 'chip' + (r === me.best ? ' best' : '');
+      chip.style.setProperty('--h', Math.min(1, r / odds).toFixed(3));
       chip.textContent = fmt(r);
       return chip;
     }));
@@ -783,9 +963,14 @@
 
   // ---- Countdown loop --------------------------------------------------
   let ringLeft = 0; // how much of the countdown ring is empty (0 to 1), for the live view
-  const setRing = (f) => { ringLeft = f; $('ringFill').style.strokeDashoffset = String(RING * f); };
+  const setRing = (f) => {
+    ringLeft = f;
+    $('ringFill').style.strokeDashoffset = String(RING * f);
+    $('ringTip').style.transform = `rotate(${(360 * (1 - f)).toFixed(1)}deg)`;
+  };
 
   function tick() {
+    renderTodayBar();
     const closed = !!today?.winner && !rolling;
     $('roller').classList.toggle('closed', closed);
     if (closed) {
@@ -1123,6 +1308,7 @@
       reels.forEach((x) => { x.reel.classList.remove('hot'); x.sep?.classList.remove('hot'); });
     }
     ticket.dataset.heat = String(heat);
+    dust.setTension(heat);
     if (heat && i < reels.length - 1) {
       sfx.tease(heat);
       haptics.tease(heat);
@@ -1196,7 +1382,7 @@
         { transform: 'scale(1)' },
       ], { duration: win ? 650 : 380, easing: 'ease-out' });
     }
-    if (!win) later(() => { if (!rolling) ticket.dataset.heat = '0'; }, 900);
+    if (!win) later(() => { if (!rolling) { ticket.dataset.heat = '0'; dust.setTension(0); } }, 900);
   }
 
   async function roll() {
@@ -1323,6 +1509,142 @@
       else ctx.clearRect(0, 0, canvas.width, canvas.height);
     })(performance.now());
   }
+
+  // ---- Today bar ---------------------------------------------------------
+  let todayBarKey = '';
+  function renderTodayBar() {
+    if (!today) return;
+    const left = Math.max(0, today.resetAt - Date.now());
+    let state = 'open', text, meta;
+    if (today.winner?.you) {
+      state = 'mine';
+      text = "You found today's golden ticket!";
+      meta = `Next ticket in ${clockUntil(left)}`;
+    } else if (today.winner) {
+      state = 'closed';
+      text = `Claimed by ${today.winner.name}`;
+      meta = `Next ticket in ${clockUntil(left)}`;
+    } else {
+      text = "Today's golden ticket is still out there";
+      meta = serverUrl
+        ? `${fmt(today.rolls || 0)} ${today.rolls === 1 ? 'roll' : 'rolls'} today · resets in ${shortUntil(left)}`
+        : `Resets in ${shortUntil(left)}`;
+    }
+    const key = state + text + meta;
+    if (key === todayBarKey) return;
+    todayBarKey = key;
+    $('todayBar').dataset.state = state;
+    $('todayText').textContent = text;
+    $('todayMeta').textContent = meta;
+  }
+
+  // ---- Gold dust ----------------------------------------------------------
+  // Slow, glowing motes drifting up behind everything. They speed up and brighten during a near miss.
+  const coarsePointer = matchMedia('(pointer: coarse)').matches;
+  const pointer = { x: 0.5, y: 0.5 };
+  const dust = (() => {
+    const canvas = $('dust');
+    if (!canvas || reducedMotion) return { setTension() {} };
+    const ctx = canvas.getContext('2d');
+    const sprite = document.createElement('canvas');
+    sprite.width = sprite.height = 32;
+    const sg = sprite.getContext('2d');
+    const glow = sg.createRadialGradient(16, 16, 0, 16, 16, 16);
+    glow.addColorStop(0, 'rgba(255, 236, 170, 1)');
+    glow.addColorStop(0.25, 'rgba(242, 201, 76, .55)');
+    glow.addColorStop(1, 'rgba(242, 201, 76, 0)');
+    sg.fillStyle = glow;
+    sg.fillRect(0, 0, 32, 32);
+    let w = 0, h = 0, dpr = 1, motes = [], running = false, last = 0, tension = 0, target = 0;
+    const spawn = (anywhere) => ({
+      x: Math.random() * w,
+      y: anywhere ? Math.random() * h : h + 12,
+      r: 3 + Math.random() * 7,
+      vy: -(5 + Math.random() * 14),
+      vx: (Math.random() - 0.5) * 6,
+      phase: Math.random() * Math.PI * 2,
+      depth: 0.3 + Math.random() * 0.7,
+    });
+    function resize() {
+      dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      w = innerWidth;
+      h = innerHeight;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      const n = Math.round(Math.min(70, Math.max(24, (w * h) / 20000)));
+      while (motes.length < n) motes.push(spawn(true));
+      motes.length = n;
+    }
+    function frame(t) {
+      if (!running) return;
+      const dt = Math.min(0.05, (t - (last || t)) / 1000);
+      last = t;
+      tension += (target - tension) * Math.min(1, dt * 3);
+      const speed = 1 + tension * 3;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      for (const m of motes) {
+        m.y += m.vy * dt * speed * m.depth;
+        m.x += (m.vx + Math.sin(t / 1700 + m.phase) * 5) * dt * m.depth;
+        if (m.y < -20 || m.x < -30 || m.x > w + 30) Object.assign(m, spawn(false));
+        const px = m.x + (pointer.x - 0.5) * -22 * m.depth;
+        const py = m.y + (pointer.y - 0.5) * -14 * m.depth;
+        ctx.globalAlpha = Math.min(1, (0.22 + 0.3 * (0.5 + 0.5 * Math.sin(t / 900 + m.phase))) * m.depth * (1 + tension * 0.8));
+        const size = m.r * (1 + tension * 0.3);
+        ctx.drawImage(sprite, px - size, py - size, size * 2, size * 2);
+      }
+      requestAnimationFrame(frame);
+    }
+    function setRunning(on) {
+      if (on === running) return;
+      running = on;
+      last = 0;
+      if (on) requestAnimationFrame(frame);
+    }
+    resize();
+    addEventListener('resize', resize);
+    document.addEventListener('visibilitychange', () => setRunning(!document.hidden));
+    setRunning(!document.hidden);
+    return { setTension(level) { target = Math.max(0, Math.min(4, level)) / 4; } };
+  })();
+
+  // ---- Ticket tilt ------------------------------------------------------------
+  // The ticket leans toward the pointer and a foil sheen follows it. Off for touch and reduced motion.
+  (() => {
+    if (reducedMotion || coarsePointer) return;
+    let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+    function apply() {
+      raf = 0;
+      const t = $('ticket');
+      if (t.ownerDocument !== document) { t.style.rotate = ''; return; }
+      cx += (tx - cx) * 0.14;
+      cy += (ty - cy) * 0.14;
+      const angle = Math.hypot(cx, cy);
+      t.style.rotate = angle < 0.03 ? '' : `${cy.toFixed(3)} ${cx.toFixed(3)} 0 ${angle.toFixed(2)}deg`;
+      if (Math.abs(tx - cx) > 0.02 || Math.abs(ty - cy) > 0.02) raf = requestAnimationFrame(apply);
+    }
+    addEventListener('pointermove', (e) => {
+      pointer.x = e.clientX / innerWidth;
+      pointer.y = e.clientY / innerHeight;
+      const t = $('ticket');
+      if (t.ownerDocument !== document) return;
+      const r = t.getBoundingClientRect();
+      const nx = (e.clientX - (r.left + r.width / 2)) / (r.width * 0.75);
+      const ny = (e.clientY - (r.top + r.height / 2)) / (r.height * 1.5);
+      const near = Math.abs(nx) < 1 && Math.abs(ny) < 1;
+      tx = near ? nx * 7 : 0;
+      ty = near ? -ny * 6 : 0;
+      t.style.setProperty('--mx', `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+      t.style.setProperty('--my', `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+      t.classList.toggle('lit', near);
+      if (!raf) raf = requestAnimationFrame(apply);
+    }, { passive: true });
+    document.addEventListener('pointerleave', () => {
+      tx = ty = 0;
+      $('ticket').classList.remove('lit');
+      if (!raf) raf = requestAnimationFrame(apply);
+    });
+  })();
 
   // ---- Start -----------------------------------------------------------
   btn.addEventListener('click', roll);
@@ -1728,7 +2050,6 @@
     live.draw();
   }
 
-  const coarsePointer = matchMedia('(pointer: coarse)').matches;
   $('popOut').hidden = coarsePointer || !(canPopOut || canLiveView);
   $('popOut').addEventListener('click', () => {
     if (canPopOut && !forceLiveView) popOut();
