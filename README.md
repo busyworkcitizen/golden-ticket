@@ -14,7 +14,7 @@ Play it at **https://busyworkcitizen.github.io/golden-ticket/** once GitHub Page
 - **One a day.** Once today's ticket is found, the ticket is stamped CLAIMED with who found it and when, and the button counts down to midnight.
 - **Sound.** Clicks, thunks and a win chime, made in the browser. Turn them off with the Sound switch.
 - **Haptics.** On phones, the reels thunk, near misses pulse and a win buzzes. Android vibrates; iPhones (iOS 18 and later) get light taps. Turn them off with the Haptics switch.
-- **Mini widget.** In Chrome or Edge on a computer, press *Mini widget* to pop the ticket into a small always-on-top window you can keep over a game (see below).
+- **Mini widget.** On a computer, press *Mini widget* to pop the ticket into a small always-on-top window you can keep over a game (see below). Works in Chrome, Edge and Opera GX.
 
 At one roll every 5 seconds, the average player needs about 14 hours of non-stop rolling to win.
 
@@ -65,12 +65,18 @@ With the table server connected, there's one ticket per day for everyone:
 
 ## Mini widget
 
-In Chrome or Edge on a computer, **⧉ Mini widget** moves the ticket, the roll button and the Auto-roll and Sound switches into a small window that stays on top of other windows. Turn on Auto-roll, start your game, and keep an eye on the reels in the corner.
+On a computer, **⧉ Mini widget** opens a small window that stays on top of other windows. Turn on Auto-roll, start your game, and keep an eye on the reels in the corner. It comes in two kinds, and the page picks the one your browser supports:
 
-- It's the same page in a different window, not a copy, so it's always in sync. Close it (or press *Bring it back*) and everything returns to the page.
+- **Chrome and Edge:** the ticket, the roll button and the Auto-roll and Sound switches move into the small window (Document Picture-in-Picture). You can click and roll in it. Close it, or press *Bring it back*, and everything returns to the page.
+- **Opera GX and other browsers without that feature:** a **live view**. The game is drawn into a floating video (ordinary video picture-in-picture), with the reels, suspense, countdown, the CLAIMED stamp and your golden ticket if you win. You can't click inside a video, so its **play/pause** button turns Auto-roll on and off, and **next track** (where the browser shows it) rolls once. If your browser's floating video has no play/pause button, turn Auto-roll on before you open it.
+
+Either way:
+
 - It stays on top of games running in a window or borderless window. Games in exclusive fullscreen draw over everything, so switch those to borderless.
-- It keeps rolling while the browser tab is hidden. Closing the browser tab closes the widget too.
-- It uses Chrome's and Edge's Document Picture-in-Picture feature. Firefox and Safari don't have it yet, so the button doesn't appear there.
+- It keeps rolling while the browser tab is hidden behind your game. (So does a plain background tab with Auto-roll on.) Closing the browser tab ends it.
+- In Opera GX, a strict CPU limiter in GX Control can slow background tabs down. If rolls get slow, loosen it.
+- To try the live view in Chrome or Edge, add `?liveview` to the address.
+- Firefox has neither kind for web pages, so the button doesn't appear there.
 
 ## Winners leaderboard
 

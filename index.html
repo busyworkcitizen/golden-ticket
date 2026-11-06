@@ -339,7 +339,7 @@
   </header>
 
   <section class="panel popped" id="popped" hidden>
-    <p>Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.</p>
+    <p id="popText">Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.</p>
     <button class="ghost-btn" id="popIn" type="button">Bring it back</button>
   </section>
 
@@ -656,7 +656,7 @@
       const at = new Date(t.winner.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       setVerdict(t.winner.you
         ? `You found today's golden ticket at ${at}!`
-        : `Found by ${t.winner.name} at ${at}${t.rolls ? ` after ${fmt(t.rolls)} rolls` : ''}.`);
+        : `Found by ${t.winner.name} at ${at}${t.rolls ? ` after ${fmt(t.rolls)} ${t.rolls === 1 ? 'roll' : 'rolls'}` : ''}.`);
       if (!wasClosed && !firstLoad) slamStamp();
     } else if (wasClosed) {
       ticket.classList.remove('jackpot');
@@ -782,6 +782,9 @@
   }
 
   // ---- Countdown loop --------------------------------------------------
+  let ringLeft = 0; // how much of the countdown ring is empty (0 to 1), for the live view
+  const setRing = (f) => { ringLeft = f; $('ringFill').style.strokeDashoffset = String(RING * f); };
+
   function tick() {
     const closed = !!today?.winner && !rolling;
     $('roller').classList.toggle('closed', closed);
@@ -791,7 +794,7 @@
       $('roller').classList.remove('ready', 'rolling');
       label.textContent = shortUntil(left);
       hint.textContent = 'next ticket';
-      $('ringFill').style.strokeDashoffset = String(RING * Math.min(1, left / 86_400_000));
+      setRing(Math.min(1, left / 86_400_000));
       $('nextTicket').textContent = `Next golden ticket in ${clockUntil(left)}`;
       if (left === 0 && !reopening) reopen();
       return;
@@ -804,15 +807,15 @@
     if (rolling) {
       label.textContent = '…';
       hint.textContent = 'rolling';
-      $('ringFill').style.strokeDashoffset = String(RING * 0.72);
+      setRing(0.72);
     } else if (remaining > 0) {
       label.textContent = Math.ceil(remaining / 1000) + 's';
       hint.textContent = 'next roll';
-      $('ringFill').style.strokeDashoffset = String(RING * Math.min(1, remaining / cooldownMs));
+      setRing(Math.min(1, remaining / cooldownMs));
     } else {
       label.textContent = 'ROLL';
       hint.textContent = autoInput.checked ? 'auto' : 'ready';
-      $('ringFill').style.strokeDashoffset = '0';
+      setRing(0);
       if (autoInput.checked && $('winOverlay').hidden) roll();
     }
   }
@@ -823,6 +826,7 @@
     const loop = () => {
       if (gen !== tickGen) return;
       tick();
+      renderReels();
       const v = view();
       // Animation frames stop in a hidden tab, so fall back to a timer there (auto-roll keeps going).
       if (v.document.hidden) v.setTimeout(loop, 250);
@@ -957,7 +961,7 @@
       win.append(strip);
       reel.append(win);
       box.append(reel);
-      const r = { reel, strip, spinning: false, sep: null };
+      const r = { reel, strip, spinning: false, sep: null, motion: { type: 'rest', index: 0 } };
       const right = n - 1 - i; // digits to the right of this one
       if (right > 0 && right % 3 === 0) {
         r.sep = document.createElement('span');
@@ -978,65 +982,116 @@
     });
   }
 
+  // ---- Reel motion ------------------------------------------------------------
+  // Each reel's motion is a small description (resting, spinning or stopping) that gets drawn from
+  // the clock every frame: on the page, in the mini widget and in the live view alike. Unlike CSS
+  // animations, it keeps its place while the tab is hidden behind a game.
+  function bezier(x1, y1, x2, y2) { // the same curves as CSS cubic-bezier()
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const sx = (t) => ((ax * t + bx) * t + cx) * t;
+    const sy = (t) => ((ay * t + by) * t + cy) * t;
+    return (x) => {
+      if (x <= 0) return 0;
+      if (x >= 1) return 1;
+      let lo = 0, hi = 1, t = x;
+      for (let i = 0; i < 24; i++) {
+        const v = sx(t);
+        if (Math.abs(v - x) < 1e-5) break;
+        if (v < x) lo = t; else hi = t;
+        t = (lo + hi) / 2;
+      }
+      return sy(t);
+    };
+  }
+  const EASE = {
+    out: bezier(0, 0, 0.58, 1),
+    inOut: bezier(0.42, 0, 0.58, 1),
+    spinUp: bezier(0.55, 0, 0.75, 0.6),
+    stop: bezier(0.3, 0.55, 0.4, 1),
+    settle: bezier(0.4, 0, 0.6, 1),
+  };
+  const WINDUP_MS = 420;
+  const BLUR = 1.6;
+
+  function keyframes(p, keys) { // keys: [offset, value, easing to the next key]
+    for (let i = 0; i < keys.length - 1; i++) {
+      const [a, va, ease] = keys[i];
+      const [b, vb] = keys[i + 1];
+      if (p <= b) return va + (vb - va) * ease((p - a) / (b - a));
+    }
+    return keys[keys.length - 1][1];
+  }
+
+  function indexAt(r, now) {
+    const m = r.motion;
+    if (m.type === 'rest') return m.index;
+    if (m.type === 'spin') {
+      const el = now - m.start;
+      if (el <= 0) return m.from;
+      // A little pull-back, then accelerate into a blur and keep turning.
+      if (el < WINDUP_MS) return keyframes(el / WINDUP_MS, [[0, m.from, EASE.out], [0.2, m.from - 0.3, EASE.spinUp], [1, m.from + 10]]);
+      return m.from + 10 + (((el - WINDUP_MS) % LOOP_MS) / LOOP_MS) * 10;
+    }
+    // Ease to rest on the target, overshoot a touch, and settle.
+    const p = Math.min(1, Math.max(0, (now - m.start) / m.duration));
+    return keyframes(p, [[0, m.from, EASE.stop], [0.8, m.target + 0.16, EASE.settle], [0.91, m.target - 0.05, EASE.inOut], [1, m.target]]);
+  }
+
+  function blurAt(r, now) {
+    const m = r.motion;
+    if (m.type === 'spin') {
+      const p = (now - m.start) / WINDUP_MS;
+      return p <= 0.2 ? 0 : p >= 1 ? BLUR : (BLUR * (p - 0.2)) / 0.8;
+    }
+    if (m.type === 'stop') {
+      const p = (now - m.start) / m.duration;
+      return p >= 0.8 ? 0 : BLUR * (1 - Math.max(0, p) / 0.8);
+    }
+    return 0;
+  }
+
+  function renderReels(now = performance.now()) {
+    for (const r of reels) {
+      const idx = indexAt(r, now);
+      const blur = blurAt(r, now);
+      if (idx === r.drawnIdx && blur === r.drawnBlur) continue;
+      r.drawnIdx = idx;
+      r.drawnBlur = blur;
+      r.strip.style.transform = yAt(idx);
+      r.strip.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : '';
+    }
+  }
+
   function showStatic(value) {
     buildReels();
     const d = digitsOf(value);
     reels.forEach((r, i) => {
-      r.strip.getAnimations().forEach((a) => a.cancel());
-      r.strip.style.transform = yAt(Number(d[i]));
-      r.strip.style.filter = '';
+      r.motion = { type: 'rest', index: Number(d[i]) };
       r.reel.classList.remove('hot');
       r.sep?.classList.remove('hot');
       r.spinning = false;
     });
     markLeading(d);
-  }
-
-  // Where a strip is right now (in digit cells), even mid-animation.
-  function indexNow(strip) {
-    const cs = strip.ownerDocument.defaultView.getComputedStyle(strip);
-    const m = new DOMMatrixReadOnly(cs.transform === 'none' ? undefined : cs.transform);
-    return -m.m42 / (parseFloat(cs.fontSize) * CELL);
+    renderReels();
   }
 
   function spinReel(r, delay) {
-    const from = ((Math.round(indexNow(r.strip)) % 10) + 10) % 10;
-    r.strip.getAnimations().forEach((a) => a.cancel());
-    r.strip.style.transform = yAt(from);
+    const now = performance.now();
+    const from = ((Math.round(indexAt(r, now)) % 10) + 10) % 10;
     r.reel.classList.remove('lead', 'hot');
     r.sep?.classList.remove('lead', 'hot');
     r.spinning = true;
-    // A little pull-back, then accelerate into a blur.
-    const windup = r.strip.animate([
-      { transform: yAt(from), filter: 'blur(0px)', easing: 'ease-out' },
-      { transform: yAt(from - 0.3), filter: 'blur(0px)', offset: 0.2, easing: 'cubic-bezier(.55,0,.75,.6)' },
-      { transform: yAt(from + 10), filter: 'blur(1.6px)' },
-    ], { duration: 420, delay, fill: 'forwards' });
-    windup.onfinish = () => {
-      r.strip.style.filter = 'blur(1.6px)';
-      r.strip.animate([{ transform: yAt(from + 10) }, { transform: yAt(from + 20) }], { duration: LOOP_MS, iterations: Infinity });
-    };
+    r.motion = { type: 'spin', start: now + delay, from };
   }
 
-  // Ease a spinning strip to rest on `digit`, overshoot a touch, and settle.
   function stopReel(r, digit, duration) {
-    const from = indexNow(r.strip);
-    r.strip.getAnimations().forEach((a) => a.cancel());
-    let target = Math.ceil(from + 9);
+    const now = performance.now();
+    const from = indexAt(r, now);
+    let target = Math.ceil(from + 9); // at least nine more digits, so it never stops dead
     target += (digit - (target % 10) + 10) % 10;
-    r.strip.style.transform = yAt(target);
-    r.strip.style.filter = '';
-    const anim = r.strip.animate([
-      { transform: yAt(from), filter: 'blur(1.6px)', easing: 'cubic-bezier(.3,.55,.4,1)' },
-      { transform: yAt(target + 0.16), filter: 'blur(0px)', offset: 0.8, easing: 'cubic-bezier(.4,0,.6,1)' },
-      { transform: yAt(target - 0.05), offset: 0.91, easing: 'ease-in-out' },
-      { transform: yAt(target) },
-    ], { duration });
-    return new Promise((resolve) => {
-      anim.onfinish = resolve;
-      anim.oncancel = resolve;
-      later(resolve, duration + 200); // in case the window it was animating in went away or was hidden
-    });
+    r.motion = { type: 'stop', start: now, from, target, duration };
+    return sleep(duration);
   }
 
   // How exciting each landed prefix is: on track for the winning number, or for one short of it.
@@ -1283,7 +1338,7 @@
   // Chrome and Edge on desktop can open a small always-on-top window that holds real page content
   // (Document Picture-in-Picture). The ticket, button and switches move into it, so it's the same
   // game in a smaller window: always in sync, and it keeps rolling while you play something else.
-  const canPopOut = 'documentPictureInPicture' in window && !matchMedia('(pointer: coarse)').matches;
+  const canPopOut = 'documentPictureInPicture' in window;
 
   async function popOut() {
     if (pip || rolling) return;
@@ -1328,10 +1383,13 @@
     doc.body.append(wrap, overlayEl);
     doc.addEventListener('keydown', onKey);
     pip = w;
+    $('popText').textContent = 'Your ticket is in the mini widget, on top of your other windows. Keep playing; it keeps rolling.';
+    $('popIn').textContent = 'Bring it back';
     $('popped').hidden = false;
     $('popOut').hidden = true;
     rearmTimers();
     startTicking();
+    bgClock.update();
     w.addEventListener('pagehide', () => {
       for (const [el, mark] of slots) mark.replaceWith(el);
       pip = null;
@@ -1339,12 +1397,347 @@
       $('popOut').hidden = false;
       rearmTimers();
       startTicking();
+      bgClock.update();
     }, { once: true });
   }
 
-  $('popOut').hidden = !canPopOut;
-  $('popOut').addEventListener('click', popOut);
-  $('popIn').addEventListener('click', () => pip?.close());
+  // ---- Live view: the widget as a picture-in-picture video ------------------
+  // Browsers without Document Picture-in-Picture (Opera GX, for one) still have the ordinary video
+  // kind, which also floats on top. The ticket is drawn onto a canvas, streamed into a hidden video,
+  // and that video goes picture-in-picture. You can't click inside a video, so its play/pause button
+  // turns auto-roll on and off, and "next" (where the browser shows it) rolls once.
+  const canLiveView = !!document.pictureInPictureEnabled && 'requestPictureInPicture' in HTMLVideoElement.prototype
+    && 'captureStream' in HTMLCanvasElement.prototype;
+  const forceLiveView = new URLSearchParams(location.search).has('liveview');
+
+  const live = (() => {
+    const W = 640, H = 400;
+    const C = { bg: '#120a07', text: '#f6ead2', muted: '#b3a083', gold: '#f2c94c', gold1: '#fff3c4', ink: '#3a2405', stamp: '#ff8f6b' };
+    const SANS = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+    let video = null, canvas = null, ctx = null, stream = null, reelCanvas = null;
+
+    function toggleAuto() {
+      autoInput.checked = !autoInput.checked;
+      store.set('gt_auto', autoInput.checked);
+    }
+
+    function mediaControls(on) {
+      const ms = navigator.mediaSession;
+      if (!ms) return;
+      const handlers = { play: toggleAuto, pause: toggleAuto, nexttrack: () => roll() };
+      for (const [action, fn] of Object.entries(handlers)) {
+        try { ms.setActionHandler(action, on ? fn : null); } catch {}
+      }
+      try { ms.metadata = on ? new MediaMetadata({ title: 'Golden Ticket', artist: 'Live view' }) : null; } catch {}
+      if (!on) ms.playbackState = 'none';
+    }
+
+    async function open() {
+      if (video) return;
+      sfx.unlock();
+      try { await document.fonts.load('80px "Abril Fatface"'); } catch {}
+      canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      ctx = canvas.getContext('2d');
+      draw();
+      stream = canvas.captureStream(30);
+      video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      video.setAttribute('aria-hidden', 'true');
+      video.style.cssText = 'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0;pointer-events:none';
+      document.body.append(video);
+      try {
+        await video.play();
+        if (video.readyState < 1) await new Promise((r) => video.addEventListener('loadedmetadata', r, { once: true }));
+        await video.requestPictureInPicture();
+      } catch {
+        close();
+        setVerdict("Your browser wouldn't open the floating window.", true);
+        return;
+      }
+      video.addEventListener('leavepictureinpicture', close, { once: true });
+      // A browser that ignores the play/pause handlers pauses the video itself: count that as the
+      // button press, and keep the picture moving.
+      video.addEventListener('pause', () => {
+        if (!video) return;
+        toggleAuto();
+        video.play().catch(() => {});
+      });
+      mediaControls(true);
+      $('popText').textContent = 'Your ticket is in a floating window that stays on top. Keep playing; it keeps rolling. The play/pause button in that window turns auto-roll on and off.';
+      $('popIn').textContent = 'Close the floating window';
+      $('popped').hidden = false;
+      $('popOut').hidden = true;
+      bgClock.update();
+    }
+
+    function close() {
+      if (!video) return;
+      const v = video;
+      video = null;
+      if (document.pictureInPictureElement === v) document.exitPictureInPicture().catch(() => {});
+      stream?.getTracks().forEach((t) => t.stop());
+      v.remove();
+      canvas = ctx = stream = null;
+      mediaControls(false);
+      $('popped').hidden = true;
+      $('popOut').hidden = false;
+      bgClock.update();
+    }
+
+    function fit(text, max) {
+      if (ctx.measureText(text).width <= max) return text;
+      while (text.length > 1 && ctx.measureText(text + '…').width > max) text = text.slice(0, -1);
+      return text + '…';
+    }
+
+    function drawReels(cx, top, size, look) {
+      const cellH = size * CELL, cellW = size * 0.66, sepW = size * 0.24, pad = Math.ceil(size * 0.2);
+      const total = reels.reduce((w, r) => w + cellW + (r.sep ? sepW : 0), 0);
+      reelCanvas ??= document.createElement('canvas');
+      const rc = reelCanvas;
+      rc.width = Math.ceil(total) + pad * 2;
+      rc.height = Math.ceil(cellH) + pad * 2;
+      const g = rc.getContext('2d');
+      g.font = `${size}px "Abril Fatface", Georgia, serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      const now = performance.now();
+      let x = pad;
+      const paint = (r, text, alpha, hot, cx2, cy2, blur) => {
+        g.save();
+        g.globalAlpha = alpha;
+        g.fillStyle = look.jackpot ? C.gold1 : hot ? C.gold : C.text;
+        if (look.jackpot || hot) { g.shadowColor = 'rgba(242, 201, 76, .85)'; g.shadowBlur = size * 0.14; }
+        if (blur > 0.05) g.filter = `blur(${((blur * size) / 70).toFixed(2)}px)`;
+        g.fillText(text, cx2, cy2);
+        g.restore();
+      };
+      for (const r of reels) {
+        const idx = indexAt(r, now);
+        const base = Math.floor(idx), frac = idx - base;
+        const lead = r.reel.classList.contains('lead'), hot = r.reel.classList.contains('hot');
+        const alpha = (lead ? 0.16 : 1) * (look.dim ? 0.28 : 1);
+        g.save();
+        g.beginPath();
+        g.rect(x, pad, cellW, cellH);
+        g.clip();
+        for (const k of [-1, 0, 1, 2]) {
+          const digit = (((base + k) % 10) + 10) % 10;
+          paint(r, String(digit), alpha, hot, x + cellW / 2, pad + cellH / 2 + (k - frac) * cellH, blurAt(r, now));
+        }
+        g.restore();
+        x += cellW;
+        if (r.sep) {
+          const sl = r.sep.classList;
+          paint(r, ',', (sl.contains('lead') ? 0.16 : 1) * (look.dim ? 0.28 : 1), sl.contains('hot'), x + sepW / 2, pad + cellH / 2, 0);
+          x += sepW;
+        }
+      }
+      // Fade the top and bottom edges, like the reel windows on the page.
+      g.globalCompositeOperation = 'destination-in';
+      const fade = g.createLinearGradient(0, pad, 0, pad + cellH);
+      fade.addColorStop(0, 'rgba(0,0,0,0)');
+      fade.addColorStop(0.13, '#000');
+      fade.addColorStop(0.87, '#000');
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = fade;
+      g.fillRect(0, 0, rc.width, rc.height);
+      ctx.drawImage(rc, cx - total / 2 - pad, top - pad);
+    }
+
+    function drawWin() {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, C.gold1); g.addColorStop(0.3, C.gold); g.addColorStop(0.62, '#c8901a'); g.addColorStop(1, C.gold1);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.roundRect(24, 24, W - 48, H - 48, 18); ctx.fill();
+      ctx.fillStyle = C.ink;
+      ctx.textAlign = 'center';
+      ctx.font = `700 13px ${SANS}`; ctx.letterSpacing = '3px';
+      ctx.fillText('ADMIT ONE · ' + $('winDate').textContent.toUpperCase(), W / 2, 72);
+      ctx.letterSpacing = '0px';
+      ctx.font = '64px "Abril Fatface", Georgia, serif';
+      ctx.fillText('Golden Ticket', W / 2, 150);
+      ctx.font = `500 20px ${SANS}`;
+      ctx.fillText(fit('Awarded to ' + $('winName').textContent, W - 120), W / 2, 192);
+      ctx.fillStyle = 'rgba(58, 36, 5, .12)';
+      ctx.beginPath(); ctx.roundRect(110, 214, W - 220, 58, 10); ctx.fill();
+      ctx.fillStyle = C.ink;
+      ctx.font = '700 30px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+      ctx.fillText($('winCode').textContent, W / 2, 254);
+      ctx.font = `600 15px ${SANS}`;
+      ctx.fillText('You won! Open the page to see and save your ticket.', W / 2, 316);
+    }
+
+    function draw() {
+      if (!ctx) return;
+      const now = performance.now();
+      const t = $('ticket');
+      const heat = Number(t.dataset.heat || 0);
+      const look = {
+        jackpot: t.classList.contains('jackpot'),
+        closed: t.classList.contains('closed'),
+        mine: t.classList.contains('mine'),
+      };
+      look.dim = look.closed && !look.mine;
+      if (navigator.mediaSession && video) {
+        const state = autoInput.checked ? 'playing' : 'paused';
+        if (navigator.mediaSession.playbackState !== state) navigator.mediaSession.playbackState = state;
+      }
+
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(0, 0, W, H);
+      const sky = ctx.createRadialGradient(W / 2, -60, 10, W / 2, -60, 440);
+      sky.addColorStop(0, 'rgba(242, 201, 76, .16)'); sky.addColorStop(1, 'rgba(242, 201, 76, 0)');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+      // The ticket
+      const tx = 24, ty = 18, tw = W - 48, th = 238, mid = ty + th / 2;
+      const paper = ctx.createLinearGradient(tx, ty, tx + tw, ty + th);
+      paper.addColorStop(0, '#2c1d12'); paper.addColorStop(1, '#1a110a');
+      ctx.fillStyle = paper;
+      ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 16); ctx.fill();
+      let glow = look.jackpot ? 1.7 : [0, 0.6, 0.85, 1, 1][heat] || (t.classList.contains('spinning') ? 0.3 : 0);
+      if (heat >= 2 && !look.jackpot) glow *= 1 + 0.08 * Math.sin(now / (heat >= 3 ? 88 : 143));
+      if (glow > 0) {
+        const halo = ctx.createRadialGradient(W / 2, mid, 10, W / 2, mid, tw * 0.55);
+        halo.addColorStop(0, `rgba(242, 201, 76, ${Math.min(0.6, 0.34 * glow)})`); halo.addColorStop(1, 'rgba(242, 201, 76, 0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 16); ctx.fill();
+      }
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = look.jackpot || heat >= 3 ? 'rgba(242, 201, 76, .75)' : 'rgba(242, 201, 76, .18)';
+      ctx.beginPath(); ctx.roundRect(tx, ty, tw, th, 16); ctx.stroke();
+      ctx.fillStyle = C.bg;
+      for (const x of [tx, tx + tw]) { ctx.beginPath(); ctx.arc(x, mid, 16, 0, Math.PI * 2); ctx.fill(); }
+      ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(242, 201, 76, .2)';
+      ctx.beginPath(); ctx.roundRect(tx + 28, ty + 10, tw - 56, th - 20, 8); ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = `600 13px ${SANS}`; ctx.letterSpacing = '3px'; ctx.fillStyle = C.muted;
+      ctx.textAlign = 'left'; ctx.fillText('ADMIT ONE', tx + 44, ty + 38);
+      ctx.textAlign = 'right'; ctx.fillText($('ticketNo').textContent.toUpperCase(), tx + tw - 44, ty + 38);
+      ctx.letterSpacing = '0px';
+
+      drawReels(W / 2, ty + 52, 92, look);
+
+      ctx.textAlign = 'center';
+      ctx.font = `500 16px ${SANS}`;
+      ctx.fillStyle = look.closed ? C.text : C.muted;
+      ctx.fillText(look.closed ? $('nextTicket').textContent : $('oddsMeta').textContent, W / 2, ty + 180);
+      const verdict = $('verdict');
+      ctx.font = `600 19px ${SANS}`;
+      ctx.fillStyle = look.closed ? C.text : verdict.classList.contains('error') ? '#ff9b8a' : C.gold;
+      ctx.fillText(fit(verdict.textContent, tw - 90), W / 2, ty + 212);
+
+      if (!$('stamp').hidden) {
+        ctx.save();
+        ctx.translate(W / 2, ty + 104);
+        ctx.rotate((-11 * Math.PI) / 180);
+        ctx.font = `800 34px ${SANS}`; ctx.letterSpacing = '7px';
+        const word = $('stamp').textContent.toUpperCase();
+        const bw = ctx.measureText(word).width + 36, bh = 56;
+        ctx.fillStyle = 'rgba(18, 10, 7, .62)';
+        ctx.beginPath(); ctx.roundRect(-bw / 2, -bh / 2, bw, bh, 10); ctx.fill();
+        ctx.strokeStyle = ctx.fillStyle = look.mine ? C.gold : C.stamp;
+        ctx.lineWidth = 3; ctx.stroke();
+        ctx.textBaseline = 'middle';
+        ctx.fillText(word, 4, 2);
+        ctx.restore();
+        ctx.letterSpacing = '0px';
+      }
+
+      // The countdown ring, and what's going on
+      const rx = 96, ry = 324, rr = 42;
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(242, 201, 76, .14)';
+      ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.stroke();
+      const filled = 1 - ringLeft;
+      if (filled > 0.002) {
+        const a0 = -Math.PI / 2 + (rolling ? ((now / 800) % 1) * Math.PI * 2 : 0);
+        ctx.strokeStyle = C.gold; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(rx, ry, rr, a0, a0 + Math.PI * 2 * filled); ctx.stroke();
+        ctx.lineCap = 'butt';
+      }
+      ctx.textAlign = 'center'; ctx.fillStyle = C.text;
+      const labelText = label.textContent;
+      ctx.font = `700 ${labelText.length > 5 ? 15 : 21}px ${SANS}`;
+      ctx.fillText(labelText, rx, ry + 4);
+      ctx.font = `600 11px ${SANS}`; ctx.fillStyle = C.muted;
+      ctx.fillText(hint.textContent, rx, ry + 21);
+
+      ctx.textAlign = 'left';
+      ctx.font = `700 19px ${SANS}`;
+      ctx.fillStyle = autoInput.checked ? C.gold : C.text;
+      ctx.fillText(look.closed ? "Today's ticket is taken" : autoInput.checked ? '● Auto-roll is on' : '○ Auto-roll is off', 168, 312);
+      ctx.font = `500 14px ${SANS}`; ctx.fillStyle = C.muted;
+      ctx.fillText(look.closed ? 'A new one drops at midnight.' : 'Play/pause in this window turns it on and off.', 168, 337);
+      ctx.fillText(`Your rolls ${fmt(me.rolls)}  ·  Best ${me.best ? fmt(me.best) : '—'}`, 168, 362);
+
+      if (!$('winOverlay').hidden) drawWin();
+    }
+
+    return {
+      open,
+      close,
+      draw,
+      get active() { return !!video; },
+    };
+  })();
+
+  // ---- Background clock ---------------------------------------------------------
+  // Browsers slow a hidden tab's timers to about once a second, and later to once a minute, which
+  // would make auto-roll crawl while you're in a game. A tiny worker keeps time instead: it's
+  // running while the tab is hidden (unless the mini widget is keeping time) and while the live
+  // view is open.
+  const bgClock = (() => {
+    const src = 'let id = 0; onmessage = (e) => { clearInterval(id); if (e.data > 0) id = setInterval(() => postMessage(0), e.data); };';
+    let worker = null, rate = 0;
+    function update() {
+      const want = live.active ? 33 : document.hidden && !pip ? 100 : 0;
+      if (want === rate) return;
+      rate = want;
+      if (!want) {
+        worker?.terminate();
+        worker = null;
+        return;
+      }
+      if (!worker) {
+        try {
+          worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+          worker.onmessage = pulse;
+        } catch {
+          worker = null;
+          rate = 0;
+          return;
+        }
+      }
+      worker.postMessage(want);
+    }
+    document.addEventListener('visibilitychange', update);
+    return { update };
+  })();
+
+  function pulse() {
+    const now = Date.now();
+    for (const t of timers) if (t.due <= now && timers.delete(t)) t.fn();
+    tick();
+    renderReels();
+    live.draw();
+  }
+
+  const coarsePointer = matchMedia('(pointer: coarse)').matches;
+  $('popOut').hidden = coarsePointer || !(canPopOut || canLiveView);
+  $('popOut').addEventListener('click', () => {
+    if (canPopOut && !forceLiveView) popOut();
+    else live.open();
+  });
+  $('popIn').addEventListener('click', () => {
+    if (pip) pip.close();
+    else live.close();
+  });
 
   soundInput.checked = sfx.on;
   soundInput.addEventListener('change', () => { sfx.on = soundInput.checked; });
